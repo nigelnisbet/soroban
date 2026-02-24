@@ -1,24 +1,23 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { SIZES } from '../../models/types';
-
-interface BeadPosition {
-  id: string;
-  x: number;
-  y: number;
-  isFromHeaven: boolean;
-  rodIndex: number;
-}
-
-interface RodBeadState {
-  rodIndex: number;
-  heavenBeadActive: boolean;
-  earthBeadsActive: number;
-}
+import {
+  BeadPosition,
+  RodBeadState,
+  FeedbackPhase,
+  FlashPosition,
+  calculateBeadPositions,
+  sortBeadsForBurstAnimation,
+  calculateBeadDelay,
+  getDigitForRod,
+  FeedbackBead,
+  FeedbackFlash,
+  ResultOverlay,
+} from './feedback';
 
 interface AdditionFormativeFeedbackProps {
   isActive: boolean;
-  targetValue: number;            // What we're verifying against
+  targetValue: number;
   counterBoxPositions: Map<number, DOMRect>;
   sorobanRect: DOMRect | null;
   onCounterIncrement: (rodIndex: number, newValue: number) => void;
@@ -26,109 +25,6 @@ interface AdditionFormativeFeedbackProps {
   onComplete: (isCorrect: boolean) => void;
   rodCount: number;
   rodStates: RodBeadState[];
-}
-
-// Ghost bead component - supports burst mode for rapid-fire animations
-function GhostBead({
-  startX,
-  startY,
-  endX,
-  endY,
-  delay,
-  duration = 0.5,
-  onArrive,
-  isHeaven,
-  beadSize,
-  isStatic = false,
-}: {
-  startX: number;
-  startY: number;
-  endX: number;
-  endY: number;
-  delay: number;
-  duration?: number;
-  onArrive: () => void;
-  isHeaven: boolean;
-  beadSize: number;
-  isStatic?: boolean;
-}) {
-  const beadHeight = isHeaven ? beadSize * 0.9 : beadSize * 0.7;
-  const beadWidth = beadSize * 0.85;
-  const activeColor = isHeaven ? '#CD853F' : '#DAA520';
-  const gradientEnd = isHeaven ? '#8B5A2B' : '#B8860B';
-
-  return (
-    <motion.div
-      style={{
-        position: 'fixed',
-        left: startX,
-        top: startY,
-        width: beadWidth,
-        height: beadHeight,
-        borderRadius: '50%',
-        background: `radial-gradient(ellipse at 30% 30%, ${activeColor} 0%, ${gradientEnd} 100%)`,
-        boxShadow: 'inset 0 -4px 8px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.2)',
-        zIndex: 1000,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginLeft: -beadWidth / 2,
-        marginTop: -beadHeight / 2,
-      }}
-      initial={{ x: 0, y: 0, scale: 1, opacity: 1 }}
-      animate={isStatic ? {
-        x: 0,
-        y: 0,
-        scale: 1,
-        opacity: 1,
-      } : {
-        x: endX - startX,
-        y: endY - startY,
-        scale: [1, 1.05, 0.7, 0],
-      }}
-      transition={isStatic ? { duration: 0 } : {
-        duration,
-        delay,
-        ease: [0.4, 0, 0.2, 1],
-      }}
-      onAnimationComplete={isStatic ? undefined : onArrive}
-    >
-      <div
-        style={{
-          width: beadSize * 0.15,
-          height: beadSize * 0.15,
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, #2D1810 0%, #1A0F0A 100%)',
-          boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.8)',
-        }}
-      />
-    </motion.div>
-  );
-}
-
-// Flash effect when bead enters counter
-function CounterFlash({ x, y, delay }: { x: number; y: number; delay: number }) {
-  const size = 80;
-  return (
-    <motion.div
-      style={{
-        position: 'fixed',
-        left: x,
-        top: y,
-        width: size,
-        height: size,
-        borderRadius: 12,
-        background: 'radial-gradient(circle, rgba(255, 193, 7, 0.8) 0%, transparent 70%)',
-        marginLeft: -size / 2,
-        marginTop: -size / 2,
-        zIndex: 999,
-        pointerEvents: 'none',
-      }}
-      initial={{ scale: 0, opacity: 1 }}
-      animate={{ scale: 1.5, opacity: 0 }}
-      transition={{ duration: 0.3, delay }}
-    />
-  );
 }
 
 export function AdditionFormativeFeedback({
@@ -142,9 +38,9 @@ export function AdditionFormativeFeedback({
   rodCount,
   rodStates,
 }: AdditionFormativeFeedbackProps) {
-  const [phase, setPhase] = useState<'IDLE' | 'FADING_FRAME' | 'BEADS_FLYING' | 'VERIFYING_DIGITS' | 'SHOWING_RESULT' | 'COMPLETE'>('IDLE');
+  const [phase, setPhase] = useState<FeedbackPhase>('IDLE');
   const [allBeadPositions, setAllBeadPositions] = useState<BeadPosition[]>([]);
-  const [flashPositions, setFlashPositions] = useState<{x: number; y: number; delay: number}[]>([]);
+  const [flashPositions, setFlashPositions] = useState<FlashPosition[]>([]);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [beadsLaunched, setBeadsLaunched] = useState(false);
   const [beadsArrived, setBeadsArrived] = useState<Set<string>>(new Set());
@@ -175,117 +71,9 @@ export function AdditionFormativeFeedback({
     }
   }, [isActive, rodCount]);
 
-  // Calculate bead positions when activated
-  useEffect(() => {
-    if (!isActive || !sorobanRect) return;
-    if (counterBoxPositions.size === 0) return;
-    if (animationStartedRef.current) return;
-
-    animationStartedRef.current = true;
-
-    // Calculate bead starting positions from soroban
-    const beadSize = SIZES.large.beadSize;
-    const beadSpacing = SIZES.large.beadSpacing;
-    const framePadding = SIZES.large.framepadding;
-    const rodWidth = SIZES.large.rodWidth;
-
-    const heavenSectionHeight = beadSize * 1.5 + beadSpacing * 2;
-    const dividerHeight = 12;
-    const earthSectionStart = heavenSectionHeight + dividerHeight;
-    const beadHeight = beadSize * 0.7;
-    const stackSpacing = beadSpacing * 0.5;
-    const heavenBeadHeight = beadSize * 0.9;
-    const heavenActiveY = heavenSectionHeight - heavenBeadHeight - beadSpacing;
-
-    const borderWidth = 4;
-    const contentTop = sorobanRect.top + borderWidth + framePadding;
-
-    const totalRodWidth = rodCount * rodWidth;
-    const frameContentWidth = totalRodWidth;
-    const frameLeft = sorobanRect.left + (sorobanRect.width - frameContentWidth - 2 * framePadding - 2 * borderWidth) / 2 + borderWidth + framePadding;
-
-    const beads: BeadPosition[] = [];
-
-    // Process each rod
-    for (let rodIdx = 0; rodIdx < rodCount; rodIdx++) {
-      const rodState = rodStates.find(r => r.rodIndex === rodIdx);
-      if (!rodState) continue;
-
-      const rodCenterX = frameLeft + (rodCount - 1 - rodIdx) * rodWidth + rodWidth / 2;
-
-      // Heaven bead first (increments by 5)
-      if (rodState.heavenBeadActive) {
-        beads.push({
-          id: `rod${rodIdx}-heaven`,
-          x: rodCenterX,
-          y: contentTop + heavenActiveY + heavenBeadHeight / 2,
-          isFromHeaven: true,
-          rodIndex: rodIdx,
-        });
-      }
-
-      // Earth beads
-      for (let i = 0; i < rodState.earthBeadsActive; i++) {
-        const positionY = earthSectionStart + beadSpacing + i * (beadHeight + stackSpacing);
-        beads.push({
-          id: `rod${rodIdx}-earth-${i}`,
-          x: rodCenterX,
-          y: contentTop + positionY + beadHeight / 2,
-          isFromHeaven: false,
-          rodIndex: rodIdx,
-        });
-      }
-    }
-
-    setAllBeadPositions(beads);
-
-    // Start animation
-    setPhase('FADING_FRAME');
-
-    timerRef.current = setTimeout(() => {
-      if (beads.length > 0) {
-        setBeadsLaunched(true);
-        setPhase('BEADS_FLYING');
-      } else {
-        // No beads - go straight to verification
-        runVerification();
-      }
-    }, 600);
-  }, [isActive, sorobanRect, rodCount, rodStates, counterBoxPositions]);
-
-  // Handle bead arriving at counter
-  const handleBeadArrive = useCallback((beadId: string, rodIndex: number, isHeavenBead: boolean = false) => {
-    setBeadsArrived(prev => {
-      if (prev.has(beadId)) return prev;
-      const next = new Set(prev);
-      next.add(beadId);
-      return next;
-    });
-
-    const incrementAmount = isHeavenBead ? 5 : 1;
-    const newValue = counterValuesRef.current[rodIndex] + incrementAmount;
-    counterValuesRef.current[rodIndex] = newValue;
-    onCounterIncrement(rodIndex, newValue);
-
-    // Flash effect
-    const counterBox = counterBoxPositions.get(rodIndex);
-    if (counterBox) {
-      setFlashPositions(prev => [...prev, {
-        x: counterBox.left + counterBox.width / 2,
-        y: counterBox.top + counterBox.height / 2,
-        delay: 0,
-      }]);
-    }
-  }, [counterBoxPositions, onCounterIncrement]);
-
   // Run digit verification
   const runVerification = useCallback(async () => {
     setPhase('VERIFYING_DIGITS');
-
-    // Get target digits
-    const getDigitForRod = (value: number, rodIndex: number): number => {
-      return Math.floor(value / Math.pow(10, rodIndex)) % 10;
-    };
 
     // Verify from highest rod to lowest (left to right visually)
     for (let rodIdx = rodCount - 1; rodIdx >= 0; rodIdx--) {
@@ -316,43 +104,64 @@ export function AdditionFormativeFeedback({
     setPhase('SHOWING_RESULT');
   }, [rodCount, targetValue, onDigitVerificationStateChange]);
 
-  // Sort beads for animation order
-  const sortedBeads = useMemo(() => {
-    const sorted = [...allBeadPositions].sort((a, b) => {
-      if (b.rodIndex !== a.rodIndex) return b.rodIndex - a.rodIndex;
-      if (a.isFromHeaven !== b.isFromHeaven) return a.isFromHeaven ? -1 : 1;
-      return a.id.localeCompare(b.id);
+  // Calculate bead positions when activated
+  useEffect(() => {
+    if (!isActive || !sorobanRect) return;
+    if (counterBoxPositions.size === 0) return;
+    if (animationStartedRef.current) return;
+
+    animationStartedRef.current = true;
+
+    const beads = calculateBeadPositions(rodStates, sorobanRect, rodCount);
+    setAllBeadPositions(beads);
+
+    // Start animation
+    setPhase('FADING_FRAME');
+
+    timerRef.current = setTimeout(() => {
+      if (beads.length > 0) {
+        setBeadsLaunched(true);
+        setPhase('BEADS_FLYING');
+      } else {
+        // No beads - go straight to verification
+        runVerification();
+      }
+    }, 600);
+  }, [isActive, sorobanRect, rodCount, rodStates, counterBoxPositions, runVerification]);
+
+  // Handle bead arriving at counter
+  const handleBeadArrive = useCallback((beadId: string, rodIndex: number, isHeavenBead: boolean = false) => {
+    setBeadsArrived(prev => {
+      if (prev.has(beadId)) return prev;
+      const next = new Set(prev);
+      next.add(beadId);
+      return next;
     });
-    return sorted;
-  }, [allBeadPositions]);
 
-  // Calculate stagger delays
-  const getBeadDelay = useCallback((bead: BeadPosition): number => {
-    const beadIndex = sortedBeads.findIndex(b => b.id === bead.id);
-    if (beadIndex === -1) return 0;
+    const incrementAmount = isHeavenBead ? 5 : 1;
+    const newValue = counterValuesRef.current[rodIndex] + incrementAmount;
+    counterValuesRef.current[rodIndex] = newValue;
+    onCounterIncrement(rodIndex, newValue);
 
-    let rodGroupDelay = 0;
-    let withinRodDelay = 0;
-    let currentRod = -1;
-    let beadsInCurrentRod = 0;
-
-    for (let i = 0; i <= beadIndex; i++) {
-      const b = sortedBeads[i];
-      if (b.rodIndex !== currentRod) {
-        if (currentRod !== -1) {
-          rodGroupDelay += 0.15;
-        }
-        currentRod = b.rodIndex;
-        beadsInCurrentRod = 0;
-      }
-      if (i === beadIndex) {
-        withinRodDelay = beadsInCurrentRod * 0.04;
-      }
-      beadsInCurrentRod++;
+    // Flash effect
+    const counterBox = counterBoxPositions.get(rodIndex);
+    if (counterBox) {
+      setFlashPositions(prev => [...prev, {
+        x: counterBox.left + counterBox.width / 2,
+        y: counterBox.top + counterBox.height / 2,
+        delay: 0,
+      }]);
     }
+  }, [counterBoxPositions, onCounterIncrement]);
 
-    return rodGroupDelay + withinRodDelay;
-  }, [sortedBeads]);
+  // Sort beads for animation order (must be before early return)
+  const sortedBeads = useMemo(() => sortBeadsForBurstAnimation(allBeadPositions), [allBeadPositions]);
+
+  // Calculate delay for a specific bead
+  const getBeadDelay = useCallback(
+    (bead: BeadPosition) => calculateBeadDelay(bead, sortedBeads, 150, 40),
+    [sortedBeads]
+  );
 
   // Check if all beads have arrived
   useEffect(() => {
@@ -391,7 +200,7 @@ export function AdditionFormativeFeedback({
     <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 100 }}>
       {/* Static beads during fade phase */}
       {phase === 'FADING_FRAME' && allBeadPositions.map((bead) => (
-        <GhostBead
+        <FeedbackBead
           key={`static-${bead.id}`}
           startX={bead.x}
           startY={bead.y}
@@ -417,7 +226,7 @@ export function AdditionFormativeFeedback({
         const delay = getBeadDelay(bead);
 
         return (
-          <GhostBead
+          <FeedbackBead
             key={`flying-${bead.id}`}
             startX={bead.x}
             startY={bead.y}
@@ -435,42 +244,13 @@ export function AdditionFormativeFeedback({
       {/* Flash effects */}
       <AnimatePresence>
         {flashPositions.map((flash, i) => (
-          <CounterFlash key={`flash-${i}`} x={flash.x} y={flash.y} delay={flash.delay} />
+          <FeedbackFlash key={`flash-${i}`} x={flash.x} y={flash.y} delay={flash.delay} />
         ))}
       </AnimatePresence>
 
       {/* Result overlay */}
       {phase === 'SHOWING_RESULT' && isCorrect !== null && (
-        <motion.div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: isCorrect
-              ? 'radial-gradient(circle, rgba(76, 175, 80, 0.3) 0%, transparent 70%)'
-              : 'radial-gradient(circle, rgba(244, 67, 54, 0.3) 0%, transparent 70%)',
-            pointerEvents: 'none',
-          }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
-          <motion.div
-            style={{
-              fontSize: 120,
-              textShadow: isCorrect
-                ? '0 0 40px rgba(76, 175, 80, 0.8)'
-                : '0 0 40px rgba(244, 67, 54, 0.8)',
-            }}
-            initial={{ scale: 0 }}
-            animate={{ scale: [0, 1.2, 1], rotate: isCorrect ? [0, 10, -10, 0] : [0, -5, 5, -5, 5, 0] }}
-            transition={{ duration: 0.5 }}
-          >
-            {isCorrect ? '✓' : '✗'}
-          </motion.div>
-        </motion.div>
+        <ResultOverlay isCorrect={isCorrect} />
       )}
     </div>
   );
