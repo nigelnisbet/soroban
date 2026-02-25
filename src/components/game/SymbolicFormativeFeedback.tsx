@@ -375,21 +375,17 @@ export function SymbolicFormativeFeedback({
       setCurrentSplitBeadPosition(null);
       setCurrentBeadIndex(0);
 
-      if (useFastAnimation) {
-        // Train-style animation: launch only the 5 heaven beads first
+      if (advancedMode) {
+        // Advanced mode: always use train animation for heaven beads (quick)
         // Earth beads will animate sequentially after a pause
         setTrainBeadsFlying(new Set([0, 1, 2, 3, 4]));
         setHeavenBeadCount(5);
         setEarthBeadsPhase(false);
-      } else if (advancedMode) {
-        // Incorrect answer in advanced mode: use deliberate sequential animation
-        // (same as kids mode but we set earthBeadsPhase for consistent slow pacing)
-        setEarthBeadsPhase(true);
       }
 
       setPhase('BEADS_FLYING');
     }, 200);
-  }, [currentSplitBeadPosition, useFastAnimation, advancedMode, currentRodBeads, sizeConfig]);
+  }, [currentSplitBeadPosition, advancedMode, currentRodBeads, sizeConfig]);
 
   // Handle bead arriving at counter
   const handleBeadArrive = useCallback((rodIndex: number, _isHeavenBead: boolean = false, trainBeadIndex?: number) => {

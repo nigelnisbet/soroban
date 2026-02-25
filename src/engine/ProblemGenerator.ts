@@ -317,3 +317,45 @@ export function generateIntroSequence(
 
   return problems;
 }
+
+// Generate a complement drilling problem
+// For levels 201-209, the addend is fixed (1-9 respectively)
+// For level 210, the addend is random 1-9
+export function generateComplementProblem(levelId: number, rodCount: number): Problem {
+  // Determine the fixed addend based on level ID
+  // Level 201 = add 1, Level 202 = add 2, ..., Level 209 = add 9
+  // Level 210 = random 1-9
+  let addend: number;
+  if (levelId >= 201 && levelId <= 209) {
+    addend = levelId - 200; // 201 -> 1, 202 -> 2, etc.
+  } else {
+    addend = Math.floor(Math.random() * 9) + 1; // Random 1-9 for level 210
+  }
+
+  // Generate operand1 - a single digit (1-9, never 0)
+  const operand1 = Math.floor(Math.random() * 9) + 1;
+
+  const sum = operand1 + addend;
+
+  return {
+    id: generateId(),
+    type: 'ADDITION',
+    targetValue: sum,
+    objects: [],
+    requiredRods: rodCount,
+    operand1,
+    operand2: addend,
+  };
+}
+
+// Generate a sequence of complement problems for a level
+export function generateComplementSequence(levelId: number, count: number = 10): Problem[] {
+  const problems: Problem[] = [];
+  const rodCount = 2; // Complement levels use 2 rods
+
+  for (let i = 0; i < count; i++) {
+    problems.push(generateComplementProblem(levelId, rodCount));
+  }
+
+  return problems;
+}

@@ -10,12 +10,11 @@ import { SymbolicFormativeFeedback } from './SymbolicFormativeFeedback';
 import { SymbolicInputDisplay } from './SymbolicInputDisplay';
 import { SymbolicInputFormativeFeedback } from './SymbolicInputFormativeFeedback';
 import { AdditionDisplay, AdditionPhase } from './AdditionDisplay';
-import { AdditionFormativeFeedback } from './AdditionFormativeFeedback';
 import { DirectFeedback } from './feedback';
 import { LevelInstructionPopup, DEMO_LEVEL_INSTRUCTIONS } from './LevelInstructionPopup';
 import { useLearningEngine, calculateSessionStats } from '../../engine/LearningEngine';
 import { LevelDefinition, numberToRodStates, SizeConfig } from '../../models/types';
-import { generateProblemSequence, generateRollingAdditionProblem } from '../../engine/ProblemGenerator';
+import { generateProblemSequence, generateRollingAdditionProblem, generateComplementSequence } from '../../engine/ProblemGenerator';
 import { useResponsiveSize } from '../../hooks/useResponsiveSize';
 
 interface GameContainerProps {
@@ -151,6 +150,10 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
       // Use 10 problems for rolling mode
       const placeholderProblems = Array.from({ length: 10 }, () => firstProblem);
       useLearningEngine.getState().startLevel(level, placeholderProblems);
+    } else if (level.id >= 201 && level.id <= 210) {
+      // Complement drilling levels - 201-209 use fixed addend, 210 uses random 1-9
+      const problems = generateComplementSequence(level.id, 10);
+      useLearningEngine.getState().startLevel(level, problems);
     } else {
       const problems = generateProblemSequence(level, 10);
       useLearningEngine.getState().startLevel(level, problems);
@@ -224,6 +227,10 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
   // Handle check button click - now triggers formative feedback animation
   const handleCheck = useCallback(() => {
     if (gameState === 'AWAITING_INPUT') {
+      // Reset sorobanRect to null to ensure feedback component waits for fresh position
+      // This prevents using stale rect from previous problem
+      setSorobanRect(null);
+
       // Capture positions for animation before state changes
       if (level.displayMode === 'symbolic' || level.displayMode === 'symbolicAdvanced') {
         // Symbolic modes use symbolicDisplayRef instead of problemDisplayRef
@@ -231,24 +238,24 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
         setSymbolicCounterValues(Array(level.rodCount).fill(0));
         setSymbolicShowCounters(true);
         setDigitVerificationState(new Map());
-        // Delay capturing soroban rect until after counter row has rendered and layout has settled
+        // Wait for counter row animation (300ms) to complete before capturing position
         setTimeout(() => {
           if (sorobanRef.current) {
             setSorobanRect(sorobanRef.current.getBoundingClientRect());
           }
-        }, 50);
+        }, 350);
       } else if (level.displayMode === 'symbolicInput') {
         // Symbolic input mode - beads fly up to counter boxes, then counter verifies against user input
         // First show the counter row, then capture soroban position after layout settles
         setSymbolicInputCounterValues(Array(level.rodCount).fill(0));
         setSymbolicInputShowCounters(true);
         setDigitVerificationState(new Map());
-        // Delay capturing soroban rect until after counter row has rendered and layout has settled
+        // Wait for counter row animation (300ms) to complete before capturing position
         setTimeout(() => {
           if (sorobanRef.current) {
             setSorobanRect(sorobanRef.current.getBoundingClientRect());
           }
-        }, 50);
+        }, 350);
       } else if (level.displayMode === 'addition' || level.displayMode === 'rollingAddition') {
         // Addition mode - handle based on current phase
         const activeProblem = effectiveProblem;
@@ -271,11 +278,12 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
             setAdditionFirstCounterValues(Array(activeRodCount).fill(0));
             setAdditionShowFirstCounters(true);
             setAdditionFirstDigitVerificationState(new Map());
+            // Delay capturing soroban rect until after counter row animation completes (300ms) and layout has settled
             setTimeout(() => {
               if (sorobanRef.current) {
                 setSorobanRect(sorobanRef.current.getBoundingClientRect());
               }
-            }, 50);
+            }, 350);
           }
         } else if (additionPhase === 'ENTERING_SUM') {
           // Check if sum is correct
@@ -302,11 +310,12 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
             setAdditionSumCounterValues(Array(activeRodCount).fill(0));
             setAdditionShowSumCounters(true);
             setAdditionSumDigitVerificationState(new Map());
+            // Wait for counter row animation (300ms) to complete before capturing position
             setTimeout(() => {
               if (sorobanRef.current) {
                 setSorobanRect(sorobanRef.current.getBoundingClientRect());
               }
-            }, 50);
+            }, 350);
           }
         } else {
           // Not in an input phase, ignore
@@ -538,6 +547,7 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
       setAdditionShowFirstCounters(false);
       setAdditionFirstCounterValues(Array(level.rodCount).fill(0));
       setAdditionFirstDigitVerificationState(new Map());
+      setAdditionPhase('ENTERING_FIRST');
     }
   }, [level.rodCount]);
 
@@ -1136,9 +1146,9 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
         />
       )}
 
-      {/* Addition mode feedback - verifying first number */}
+      {/* Addition mode feedback - verifying first number (uses advanced animation) */}
       {(level.displayMode === 'addition' || level.displayMode === 'rollingAddition') && additionPhase === 'VERIFYING_FIRST' && (
-        <AdditionFormativeFeedback
+        <SymbolicFormativeFeedback
           isActive={showFormativeFeedback}
           targetValue={effectiveProblem?.operand1 || 0}
           counterBoxPositions={additionFirstCounterBoxPositions}
@@ -1148,13 +1158,14 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
           onComplete={handleAdditionFirstComplete}
           rodCount={effectiveRodCount}
           rodStates={rodBeadStates}
+          advancedMode={true}
           sizeConfig={responsiveSizeConfig}
         />
       )}
 
-      {/* Addition mode feedback - verifying sum (wrong answer path) */}
+      {/* Addition mode feedback - verifying sum (wrong answer path, uses advanced animation) */}
       {(level.displayMode === 'addition' || level.displayMode === 'rollingAddition') && additionPhase === 'VERIFYING_SUM' && (
-        <AdditionFormativeFeedback
+        <SymbolicFormativeFeedback
           isActive={showFormativeFeedback}
           targetValue={effectiveProblem?.targetValue || 0}
           counterBoxPositions={additionSumCounterBoxPositions}
@@ -1164,6 +1175,7 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
           onComplete={handleAdditionSumComplete}
           rodCount={effectiveRodCount}
           rodStates={rodBeadStates}
+          advancedMode={true}
           sizeConfig={responsiveSizeConfig}
         />
       )}

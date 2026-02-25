@@ -196,6 +196,7 @@ export function AdditionFormativeFeedback({
     return null;
   }
 
+
   // On mobile, beads are scaled down - use scaled size for rendering
   const mobileScale = sizeConfig?.mobileScale ?? 1;
   const beadSize = (sizeConfig?.beadSize ?? SIZES.large.beadSize) * mobileScale;

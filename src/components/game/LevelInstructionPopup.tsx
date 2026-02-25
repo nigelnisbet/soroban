@@ -84,9 +84,21 @@ export function LevelInstructionPopup({
 
 // Instructions for each demo level (by level id)
 export const DEMO_LEVEL_INSTRUCTIONS: Record<number, string> = {
+  // Demo levels
   101: 'Use the visual abacus to match the given 4-digit number.',
   102: 'Enter the digits to match the visual display on the abacus.',
   103: 'Use the abacus to represent the given 2-digit number, then add another 2-digit number.',
   104: 'Use the abacus to represent the given 3-digit number, then add another 3-digit number.',
   105: 'Practice adding a series of numbers together, one after the other and see how fast you can go and break your own record!',
+  // Complement levels
+  201: 'Practice adding 1. Enter the starting number on the abacus, then add 1 to it.',
+  202: 'Practice adding 2. Enter the starting number on the abacus, then add 2 to it.',
+  203: 'Practice adding 3. Enter the starting number on the abacus, then add 3 to it.',
+  204: 'Practice adding 4. Enter the starting number on the abacus, then add 4 to it.',
+  205: 'Practice adding 5. Enter the starting number on the abacus, then add 5 to it.',
+  206: 'Practice adding 6. Enter the starting number on the abacus, then add 6 to it.',
+  207: 'Practice adding 7. Enter the starting number on the abacus, then add 7 to it.',
+  208: 'Practice adding 8. Enter the starting number on the abacus, then add 8 to it.',
+  209: 'Practice adding 9. Enter the starting number on the abacus, then add 9 to it.',
+  210: 'Speed drill! Add random numbers from 1-9 as fast as you can. Try to beat your best time!',
 };

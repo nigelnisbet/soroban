@@ -2,14 +2,14 @@ import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Soroban } from './components/soroban/Soroban';
 import { GameContainer } from './components/game/GameContainer';
-import { ALL_LEVELS, DEMO_LEVELS } from './levels/level1-counting';
+import { ALL_LEVELS, DEMO_LEVELS, COMPLEMENT_LEVELS } from './levels/level1-counting';
 import { useProgressStore } from './store/progressStore';
 import { LevelDefinition } from './models/types';
 import { calculateSessionStats } from './engine/LearningEngine';
 import './App.css';
 
 type Screen = 'home' | 'practice' | 'game';
-type LevelSet = 'demo' | 'full';
+type LevelSet = 'demo' | 'full' | 'complements';
 
 function App() {
   const [screen, setScreen] = useState<Screen>('home');
@@ -20,7 +20,11 @@ function App() {
   const { getLevelProgress, recordLevelCompletion } = useProgressStore();
 
   // Get the appropriate level list based on selected set
-  const currentLevels = levelSet === 'demo' ? DEMO_LEVELS : ALL_LEVELS;
+  const currentLevels = levelSet === 'demo'
+    ? DEMO_LEVELS
+    : levelSet === 'complements'
+    ? COMPLEMENT_LEVELS
+    : ALL_LEVELS;
 
   const handleStartLevel = useCallback((level: LevelDefinition) => {
     setSelectedLevel(level);
@@ -136,6 +140,24 @@ function App() {
             >
               Visual Curriculum
             </button>
+            <button
+              onClick={() => setLevelSet('complements')}
+              style={{
+                padding: '8px 16px',
+                fontSize: 14,
+                fontWeight: 600,
+                color: levelSet === 'complements' ? 'white' : '#5D4632',
+                background: levelSet === 'complements'
+                  ? 'linear-gradient(180deg, #8B7355 0%, #5D4632 100%)'
+                  : 'transparent',
+                border: 'none',
+                borderRadius: 8,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              Complements
+            </button>
           </div>
 
           {/* Level selection */}
@@ -156,15 +178,15 @@ function App() {
                 fontWeight: 600,
               }}
             >
-              {levelSet === 'demo' ? '5 Levels to Experience Soroban' : 'Full Student Curriculum'}
+              {levelSet === 'demo' ? '5 Levels to Experience Soroban' : levelSet === 'complements' ? 'Practice Adding Single Digits' : 'Full Student Curriculum'}
             </h2>
 
             {currentLevels.map((level, index) => {
               const progress = getLevelProgress(level.id);
               // All levels available for testing (no locking)
               const stars = progress.stars;
-              // Display number: use index+1 for adult demo, actual id for full curriculum
-              const displayNumber = levelSet === 'demo' ? index + 1 : level.id;
+              // Display number: use index+1 for demo/complements, actual id for full curriculum
+              const displayNumber = (levelSet === 'demo' || levelSet === 'complements') ? index + 1 : level.id;
 
               return (
                 <motion.button

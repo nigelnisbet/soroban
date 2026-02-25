@@ -26,7 +26,9 @@ export function calculateBeadPositions(
 ): BeadPosition[] {
   const mobileScale = sizeConfig?.mobileScale ?? 1;
 
-  // Scale size values to match the scaled soroban rect
+  // IMPORTANT: sorobanRect from getBoundingClientRect() is already in scaled screen coordinates
+  // (the CSS transform: scale(mobileScale) is applied to the container).
+  // So we need to scale our size calculations to match.
   const beadSize = (sizeConfig?.beadSize ?? SIZES.large.beadSize) * mobileScale;
   const beadSpacing = (sizeConfig?.beadSpacing ?? SIZES.large.beadSpacing) * mobileScale;
   const framePadding = (sizeConfig?.framepadding ?? SIZES.large.framepadding) * mobileScale;

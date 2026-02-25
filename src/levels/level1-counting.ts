@@ -373,6 +373,144 @@ export const DEMO_LEVELS: LevelDefinition[] = [
   ADULT_LEVEL_5_COMPETITION,
 ];
 
+// === COMPLEMENT DRILLING LEVELS ===
+// Levels 201-209: Practice adding specific digits (1-9) to single-digit numbers
+// Level 210: Speed drill with random addends
+
+export const COMPLEMENT_LEVEL_ADD_1: LevelDefinition = {
+  id: 201,
+  name: 'Add 1',
+  rodCount: 2,
+  valueRange: { min: 0, max: 9 },
+  useHeavenBead: true,
+  problemTypes: ['ADDITION'],
+  objectTypes: [],
+  displayMode: 'addition',
+  unlockCriteria: null,
+};
+
+export const COMPLEMENT_LEVEL_ADD_2: LevelDefinition = {
+  id: 202,
+  name: 'Add 2',
+  rodCount: 2,
+  valueRange: { min: 0, max: 9 },
+  useHeavenBead: true,
+  problemTypes: ['ADDITION'],
+  objectTypes: [],
+  displayMode: 'addition',
+  unlockCriteria: null,
+};
+
+export const COMPLEMENT_LEVEL_ADD_3: LevelDefinition = {
+  id: 203,
+  name: 'Add 3',
+  rodCount: 2,
+  valueRange: { min: 0, max: 9 },
+  useHeavenBead: true,
+  problemTypes: ['ADDITION'],
+  objectTypes: [],
+  displayMode: 'addition',
+  unlockCriteria: null,
+};
+
+export const COMPLEMENT_LEVEL_ADD_4: LevelDefinition = {
+  id: 204,
+  name: 'Add 4',
+  rodCount: 2,
+  valueRange: { min: 0, max: 9 },
+  useHeavenBead: true,
+  problemTypes: ['ADDITION'],
+  objectTypes: [],
+  displayMode: 'addition',
+  unlockCriteria: null,
+};
+
+export const COMPLEMENT_LEVEL_ADD_5: LevelDefinition = {
+  id: 205,
+  name: 'Add 5',
+  rodCount: 2,
+  valueRange: { min: 0, max: 9 },
+  useHeavenBead: true,
+  problemTypes: ['ADDITION'],
+  objectTypes: [],
+  displayMode: 'addition',
+  unlockCriteria: null,
+};
+
+export const COMPLEMENT_LEVEL_ADD_6: LevelDefinition = {
+  id: 206,
+  name: 'Add 6',
+  rodCount: 2,
+  valueRange: { min: 0, max: 9 },
+  useHeavenBead: true,
+  problemTypes: ['ADDITION'],
+  objectTypes: [],
+  displayMode: 'addition',
+  unlockCriteria: null,
+};
+
+export const COMPLEMENT_LEVEL_ADD_7: LevelDefinition = {
+  id: 207,
+  name: 'Add 7',
+  rodCount: 2,
+  valueRange: { min: 0, max: 9 },
+  useHeavenBead: true,
+  problemTypes: ['ADDITION'],
+  objectTypes: [],
+  displayMode: 'addition',
+  unlockCriteria: null,
+};
+
+export const COMPLEMENT_LEVEL_ADD_8: LevelDefinition = {
+  id: 208,
+  name: 'Add 8',
+  rodCount: 2,
+  valueRange: { min: 0, max: 9 },
+  useHeavenBead: true,
+  problemTypes: ['ADDITION'],
+  objectTypes: [],
+  displayMode: 'addition',
+  unlockCriteria: null,
+};
+
+export const COMPLEMENT_LEVEL_ADD_9: LevelDefinition = {
+  id: 209,
+  name: 'Add 9',
+  rodCount: 2,
+  valueRange: { min: 0, max: 9 },
+  useHeavenBead: true,
+  problemTypes: ['ADDITION'],
+  objectTypes: [],
+  displayMode: 'addition',
+  unlockCriteria: null,
+};
+
+export const COMPLEMENT_LEVEL_SPEED_DRILL: LevelDefinition = {
+  id: 210,
+  name: 'Speed Drill',
+  rodCount: 2,
+  valueRange: { min: 0, max: 9 },
+  useHeavenBead: true,
+  problemTypes: ['ADDITION'],
+  objectTypes: [],
+  displayMode: 'addition',
+  unlockCriteria: null,
+};
+
+// Complement level sequence
+export const COMPLEMENT_LEVELS: LevelDefinition[] = [
+  COMPLEMENT_LEVEL_ADD_1,
+  COMPLEMENT_LEVEL_ADD_2,
+  COMPLEMENT_LEVEL_ADD_3,
+  COMPLEMENT_LEVEL_ADD_4,
+  COMPLEMENT_LEVEL_ADD_5,
+  COMPLEMENT_LEVEL_ADD_6,
+  COMPLEMENT_LEVEL_ADD_7,
+  COMPLEMENT_LEVEL_ADD_8,
+  COMPLEMENT_LEVEL_ADD_9,
+  COMPLEMENT_LEVEL_SPEED_DRILL,
+];
+
 // Get a level by ID
 export function getLevelById(id: number): LevelDefinition | undefined {
   return ALL_LEVELS.find((level) => level.id === id);
