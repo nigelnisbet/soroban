@@ -2,20 +2,25 @@ import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Soroban } from './components/soroban/Soroban';
 import { GameContainer } from './components/game/GameContainer';
-import { ALL_LEVELS, getLevelById } from './levels/level1-counting';
+import { ALL_LEVELS, DEMO_LEVELS } from './levels/level1-counting';
 import { useProgressStore } from './store/progressStore';
 import { LevelDefinition } from './models/types';
 import { calculateSessionStats } from './engine/LearningEngine';
 import './App.css';
 
 type Screen = 'home' | 'practice' | 'game';
+type LevelSet = 'demo' | 'full';
 
 function App() {
   const [screen, setScreen] = useState<Screen>('home');
   const [selectedLevel, setSelectedLevel] = useState<LevelDefinition | null>(null);
   const [practiceRodCount, setPracticeRodCount] = useState(1);
+  const [levelSet, setLevelSet] = useState<LevelSet>('demo');
 
   const { getLevelProgress, recordLevelCompletion } = useProgressStore();
+
+  // Get the appropriate level list based on selected set
+  const currentLevels = levelSet === 'demo' ? DEMO_LEVELS : ALL_LEVELS;
 
   const handleStartLevel = useCallback((level: LevelDefinition) => {
     setSelectedLevel(level);
@@ -85,32 +90,81 @@ function App() {
             Learn to count with the Japanese abacus
           </p>
 
+          {/* Level set toggle */}
+          <div
+            style={{
+              display: 'flex',
+              gap: 8,
+              background: '#D4C4A8',
+              borderRadius: 12,
+              padding: 4,
+            }}
+          >
+            <button
+              onClick={() => setLevelSet('demo')}
+              style={{
+                padding: '8px 16px',
+                fontSize: 14,
+                fontWeight: 600,
+                color: levelSet === 'demo' ? 'white' : '#5D4632',
+                background: levelSet === 'demo'
+                  ? 'linear-gradient(180deg, #8B7355 0%, #5D4632 100%)'
+                  : 'transparent',
+                border: 'none',
+                borderRadius: 8,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              Demo
+            </button>
+            <button
+              onClick={() => setLevelSet('full')}
+              style={{
+                padding: '8px 16px',
+                fontSize: 14,
+                fontWeight: 600,
+                color: levelSet === 'full' ? 'white' : '#5D4632',
+                background: levelSet === 'full'
+                  ? 'linear-gradient(180deg, #8B7355 0%, #5D4632 100%)'
+                  : 'transparent',
+                border: 'none',
+                borderRadius: 8,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              Visual Curriculum
+            </button>
+          </div>
+
           {/* Level selection */}
           <div
             style={{
               display: 'flex',
               flexDirection: 'column',
-              gap: 16,
+              gap: 12,
               width: '100%',
               maxWidth: 400,
-              marginTop: 16,
             }}
           >
             <h2
               style={{
-                fontSize: 20,
+                fontSize: 18,
                 color: '#2D1810',
                 margin: 0,
                 fontWeight: 600,
               }}
             >
-              Choose a Level
+              {levelSet === 'demo' ? '5 Levels to Experience Soroban' : 'Full Student Curriculum'}
             </h2>
 
-            {ALL_LEVELS.map((level) => {
+            {currentLevels.map((level, index) => {
               const progress = getLevelProgress(level.id);
               // All levels available for testing (no locking)
               const stars = progress.stars;
+              // Display number: use index+1 for adult demo, actual id for full curriculum
+              const displayNumber = levelSet === 'demo' ? index + 1 : level.id;
 
               return (
                 <motion.button
@@ -119,13 +173,13 @@ function App() {
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 16,
-                    padding: 16,
+                    gap: 12,
+                    padding: 12,
                     background: 'linear-gradient(135deg, #FFF8E7 0%, #F5E6C8 100%)',
                     border: 'none',
-                    borderRadius: 16,
+                    borderRadius: 12,
                     cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    boxShadow: '0 3px 8px rgba(0,0,0,0.1)',
                   }}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
@@ -133,19 +187,20 @@ function App() {
                   {/* Level icon */}
                   <div
                     style={{
-                      width: 56,
-                      height: 56,
+                      width: 44,
+                      height: 44,
                       borderRadius: '50%',
                       background: 'linear-gradient(135deg, #8B7355 0%, #5D4632 100%)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: 24,
+                      fontSize: 20,
                       color: 'white',
                       fontWeight: 'bold',
+                      flexShrink: 0,
                     }}
                   >
-                    {level.id}
+                    {displayNumber}
                   </div>
 
                   {/* Level info */}
@@ -153,11 +208,12 @@ function App() {
                     style={{
                       flex: 1,
                       textAlign: 'left',
+                      minWidth: 0,
                     }}
                   >
                     <div
                       style={{
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: 'bold',
                         color: '#2D1810',
                       }}
@@ -166,21 +222,21 @@ function App() {
                     </div>
                     <div
                       style={{
-                        fontSize: 14,
+                        fontSize: 12,
                         color: '#8B7355',
                       }}
                     >
-                      Numbers {level.valueRange.min}-{level.valueRange.max}
+                      {level.rodCount} rod{level.rodCount > 1 ? 's' : ''} • {level.valueRange.min.toLocaleString()}-{level.valueRange.max.toLocaleString()}
                     </div>
                   </div>
 
                   {/* Stars */}
-                  <div style={{ display: 'flex', gap: 4 }}>
+                  <div style={{ display: 'flex', gap: 2 }}>
                     {[1, 2, 3].map((i) => (
                       <span
                         key={i}
                         style={{
-                          fontSize: 20,
+                          fontSize: 16,
                           opacity: i <= stars ? 1 : 0.3,
                         }}
                       >

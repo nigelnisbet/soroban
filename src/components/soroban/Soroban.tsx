@@ -17,12 +17,14 @@ export function Soroban({
   highlightRod,
   showValue = true,
   size = 'medium',
+  sizeConfig: customSizeConfig,
 }: SorobanProps) {
   const [rods, setRods] = useState<RodState[]>(() =>
     numberToRodStates(initialValue, rodCount)
   );
 
-  const sizeConfig = SIZES[size];
+  // Use custom size config if provided, otherwise use preset
+  const sizeConfig = customSizeConfig || SIZES[size];
   const totalValue = calculateSorobanValue(rods);
 
   // Update rods when rodCount changes
@@ -157,6 +159,7 @@ export function Soroban({
               disabled={disabled}
               highlighted={highlightRod === rod.rodIndex}
               size={size}
+              sizeConfig={customSizeConfig}
             />
           ))}
         </div>

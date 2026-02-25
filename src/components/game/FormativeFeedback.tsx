@@ -651,16 +651,8 @@ export function FormativeFeedback({
 
   // Helper to move to the next rod or finish
   const moveToNextRod = useCallback(() => {
-    console.log('[DEBUG FormativeFeedback] moveToNextRod called', {
-      currentAnimatingRodIndex,
-      rodsToAnimate,
-      allTargetsMatchedRef: allTargetsMatchedRef.current,
-      moveToNextRodCalledRef: moveToNextRodCalledRef.current,
-    });
-
     // Prevent duplicate calls (React StrictMode or timing issues)
     if (moveToNextRodCalledRef.current) {
-      console.log('[DEBUG FormativeFeedback] moveToNextRod SKIPPED - already called');
       return;
     }
     moveToNextRodCalledRef.current = true;
@@ -894,16 +886,9 @@ export function FormativeFeedback({
     // Increment current rod's matched count
     setCurrentRodMatchedCount(prev => {
       const newCount = prev + 1;
-      console.log('[DEBUG FormativeFeedback] handleBeadArrive incrementing count', {
-        newCount,
-        currentRodBeadsLength: currentRodBeads.length,
-        currentAnimatingRodIndex,
-        isExtra,
-      });
 
       // Check if all beads in current rod are done
       if (newCount >= currentRodBeads.length) {
-        console.log('[DEBUG FormativeFeedback] All beads in current rod done, scheduling moveToNextRod');
         // Small delay then move to next rod - store ref so we can cancel if all targets matched
         pendingMoveTimeoutRef.current = setTimeout(() => {
           pendingMoveTimeoutRef.current = null;
@@ -1609,19 +1594,15 @@ export function FormativeFeedback({
               // Ten frame fill order: left column bottom-to-top, then right column bottom-to-top
               const fillOrder = [8, 6, 4, 2, 0, 9, 7, 5, 3, 1];
 
-              console.log('[DEBUG FormativeFeedback] Ones bead targeting - checking full frames first (left to right)');
-
               // First, check for dots in unmatched full frames (left to right)
               for (let frameIdx = 0; frameIdx < tensFramePositions.length; frameIdx++) {
                 // Skip frames that were already matched by tens beads
                 if (matchedTensFrameIndicesRef.current.has(frameIdx)) {
-                  console.log('[DEBUG FormativeFeedback] Skipping frame', frameIdx, '- matched by tens bead');
                   continue;
                 }
 
                 // Get or create the set of matched dots for this frame
                 const matchedDotsInFrame = matchedFullFrameDotsRef.current.get(frameIdx) || new Set<number>();
-                console.log('[DEBUG FormativeFeedback] Frame', frameIdx, 'has', matchedDotsInFrame.size, 'matched dots');
 
                 // Find the next unmatched dot in fill order
                 for (const cellIdx of fillOrder) {
@@ -1639,7 +1620,6 @@ export function FormativeFeedback({
                     targetX = dotX;
                     targetY = dotY;
                     hasTarget = true;
-                    console.log('[DEBUG FormativeFeedback] Targeting dot in full frame', { frameIdx, cellIdx, targetX, targetY });
                     break;
                   }
                 }
@@ -1649,20 +1629,11 @@ export function FormativeFeedback({
               // If no full frame dots available, check partial frame dots (rightmost)
               if (!hasTarget) {
                 const partialDotIndex = matchedObjectIndicesRef.current.size;
-                console.log('[DEBUG FormativeFeedback] No full frame dots, checking partial frame', {
-                  partialDotIndex,
-                  onesDotPositionsLength: onesDotPositions.length,
-                });
                 if (partialDotIndex < onesDotPositions.length) {
                   targetX = onesDotPositions[partialDotIndex].x;
                   targetY = onesDotPositions[partialDotIndex].y;
                   hasTarget = true;
-                  console.log('[DEBUG FormativeFeedback] Targeting partial frame dot', { partialDotIndex, targetX, targetY });
                 }
-              }
-
-              if (!hasTarget) {
-                console.log('[DEBUG FormativeFeedback] No target found for ones bead!');
               }
             } else {
               // Tens bead (rod 1+) - match next available tens frame

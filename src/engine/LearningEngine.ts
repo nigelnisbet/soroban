@@ -66,11 +66,6 @@ export const useLearningEngine = create<LearningEngineState & LearningEngineActi
     ...initialState,
 
     startLevel: (level, problems) => {
-      // DEBUG: Log all problem target values
-      console.log('[DEBUG LearningEngine] startLevel called with problems:',
-        problems.map(p => ({ id: p.id, targetValue: p.targetValue }))
-      );
-
       set({
         gameState: 'PRESENTING_PROBLEM',
         currentLevel: level,
@@ -207,12 +202,6 @@ export const useLearningEngine = create<LearningEngineState & LearningEngineActi
         }
 
         const nextProblem = sessionProblems[nextIndex];
-        // DEBUG: Log when advancing to next problem
-        console.log('[DEBUG LearningEngine] Advancing to next problem:', {
-          nextIndex,
-          nextProblem: nextProblem ? { id: nextProblem.id, targetValue: nextProblem.targetValue } : null,
-          sessionProblemsLength: sessionProblems.length,
-        });
 
         // Go directly to next problem in AWAITING_INPUT state (skip PRESENTING_PROBLEM)
         // since formative feedback already provided the visual break

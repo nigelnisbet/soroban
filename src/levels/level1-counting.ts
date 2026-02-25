@@ -248,7 +248,24 @@ export const LEVEL_13_ADDITION_3DIGIT: LevelDefinition = {
   },
 };
 
-// All levels for easy access
+// Level 14: Rolling Addition
+// Concept: Chain addition - sum becomes next operand, soroban grows to 4 digits as needed
+export const LEVEL_14_ROLLING_ADDITION: LevelDefinition = {
+  id: 14,
+  name: 'Rolling Addition',
+  rodCount: 3, // Starts at 3, grows dynamically to 4 when sum >= 1000
+  valueRange: { min: 200, max: 9999 }, // Can grow to 4 digits
+  useHeavenBead: true,
+  problemTypes: ['ADDITION'],
+  objectTypes: [],
+  displayMode: 'rollingAddition',
+  unlockCriteria: {
+    levelId: 13,
+    masteryRequired: 70,
+  },
+};
+
+// All levels for easy access (full student curriculum)
 export const ALL_LEVELS: LevelDefinition[] = [
   LEVEL_1,
   LEVEL_2,
@@ -263,6 +280,97 @@ export const ALL_LEVELS: LevelDefinition[] = [
   LEVEL_11_SYMBOLIC_4DIGIT,
   LEVEL_12_SYMBOLIC_INPUT,
   LEVEL_13_ADDITION_3DIGIT,
+  LEVEL_14_ROLLING_ADDITION,
+];
+
+// === ADULT DEMO LEVELS ===
+// A focused 5-level sequence for adults to experience soroban power
+// Designed to quickly showcase the system without the gradual scaffolding
+
+// Adult Level 1: 4-digit symbolic (match soroban to number)
+export const ADULT_LEVEL_1_SYMBOLIC: LevelDefinition = {
+  id: 101,
+  name: 'Match the Number',
+  rodCount: 4,
+  valueRange: { min: 1000, max: 9999 },
+  useHeavenBead: true,
+  problemTypes: ['REPRESENT_NUMBER'],
+  objectTypes: [],
+  displayMode: 'symbolicAdvanced', // Beads fly to digits
+  unlockCriteria: null,
+};
+
+// Adult Level 2: 4-digit symbolic input (match digits to soroban)
+export const ADULT_LEVEL_2_READ: LevelDefinition = {
+  id: 102,
+  name: 'Read the Soroban',
+  rodCount: 4,
+  valueRange: { min: 1000, max: 9999 },
+  useHeavenBead: true,
+  problemTypes: ['REPRESENT_NUMBER'],
+  objectTypes: [],
+  displayMode: 'symbolicInput', // Beads fly up, user types digits
+  unlockCriteria: {
+    levelId: 101,
+    masteryRequired: 70,
+  },
+};
+
+// Adult Level 3: 2-digit addition (10 standalone problems)
+export const ADULT_LEVEL_3_ADD_2DIGIT: LevelDefinition = {
+  id: 103,
+  name: 'Quick Add (2-digit)',
+  rodCount: 2,
+  valueRange: { min: 20, max: 99 }, // Sum range
+  useHeavenBead: true,
+  problemTypes: ['ADDITION'],
+  objectTypes: [],
+  displayMode: 'addition',
+  unlockCriteria: {
+    levelId: 102,
+    masteryRequired: 70,
+  },
+};
+
+// Adult Level 4: 3-digit addition (10 standalone problems)
+export const ADULT_LEVEL_4_ADD_3DIGIT: LevelDefinition = {
+  id: 104,
+  name: 'Quick Add (3-digit)',
+  rodCount: 3,
+  valueRange: { min: 200, max: 999 }, // Sum range
+  useHeavenBead: true,
+  problemTypes: ['ADDITION'],
+  objectTypes: [],
+  displayMode: 'addition',
+  unlockCriteria: {
+    levelId: 103,
+    masteryRequired: 70,
+  },
+};
+
+// Adult Level 5: Rolling addition competition
+export const ADULT_LEVEL_5_COMPETITION: LevelDefinition = {
+  id: 105,
+  name: 'Speed Challenge',
+  rodCount: 3, // Grows to 4 as needed
+  valueRange: { min: 200, max: 9999 },
+  useHeavenBead: true,
+  problemTypes: ['ADDITION'],
+  objectTypes: [],
+  displayMode: 'rollingAddition',
+  unlockCriteria: {
+    levelId: 104,
+    masteryRequired: 70,
+  },
+};
+
+// Demo level sequence
+export const DEMO_LEVELS: LevelDefinition[] = [
+  ADULT_LEVEL_1_SYMBOLIC,
+  ADULT_LEVEL_2_READ,
+  ADULT_LEVEL_3_ADD_2DIGIT,
+  ADULT_LEVEL_4_ADD_3DIGIT,
+  ADULT_LEVEL_5_COMPETITION,
 ];
 
 // Get a level by ID

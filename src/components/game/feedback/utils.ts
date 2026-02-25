@@ -1,6 +1,6 @@
 // Shared utility functions for feedback animations
 
-import { SIZES } from '../../../models/types';
+import { SIZES, SizeConfig } from '../../../models/types';
 import { BeadPosition, RodBeadState } from './types';
 
 /**
@@ -13,31 +13,38 @@ export function getDigitForRod(value: number, rodIndex: number): number {
 
 /**
  * Calculate bead starting positions from soroban rect and rod states
+ *
+ * Note: When mobileScale < 1, the sorobanRect from getBoundingClientRect() returns
+ * screen coordinates after the CSS transform. We need to scale our size calculations
+ * to match.
  */
 export function calculateBeadPositions(
   rodStates: RodBeadState[],
   sorobanRect: DOMRect,
-  rodCount: number
+  rodCount: number,
+  sizeConfig?: SizeConfig
 ): BeadPosition[] {
-  const beadSize = SIZES.large.beadSize;
-  const beadSpacing = SIZES.large.beadSpacing;
-  const framePadding = SIZES.large.framepadding;
-  const rodWidth = SIZES.large.rodWidth;
+  const mobileScale = sizeConfig?.mobileScale ?? 1;
+
+  // Scale size values to match the scaled soroban rect
+  const beadSize = (sizeConfig?.beadSize ?? SIZES.large.beadSize) * mobileScale;
+  const beadSpacing = (sizeConfig?.beadSpacing ?? SIZES.large.beadSpacing) * mobileScale;
+  const framePadding = (sizeConfig?.framepadding ?? SIZES.large.framepadding) * mobileScale;
+  const rodWidth = (sizeConfig?.rodWidth ?? SIZES.large.rodWidth) * mobileScale;
 
   const heavenSectionHeight = beadSize * 1.5 + beadSpacing * 2;
-  const dividerHeight = 12;
+  const dividerHeight = 12 * mobileScale;
   const earthSectionStart = heavenSectionHeight + dividerHeight;
   const beadHeight = beadSize * 0.7;
   const stackSpacing = beadSpacing * 0.5;
   const heavenBeadHeight = beadSize * 0.9;
   const heavenActiveY = heavenSectionHeight - heavenBeadHeight - beadSpacing;
 
-  const borderWidth = 4;
+  const borderWidth = 4 * mobileScale;
   const contentTop = sorobanRect.top + borderWidth + framePadding;
 
-  const totalRodWidth = rodCount * rodWidth;
-  const frameContentWidth = totalRodWidth;
-  const frameLeft = sorobanRect.left + (sorobanRect.width - frameContentWidth - 2 * framePadding - 2 * borderWidth) / 2 + borderWidth + framePadding;
+  // Calculate rod positions from frame center for accuracy
+  const frameCenter = sorobanRect.left + sorobanRect.width / 2;
 
   const beads: BeadPosition[] = [];
 
@@ -45,7 +52,9 @@ export function calculateBeadPositions(
     const rodState = rodStates.find(r => r.rodIndex === rodIdx);
     if (!rodState) continue;
 
-    const rodCenterX = frameLeft + (rodCount - 1 - rodIdx) * rodWidth + rodWidth / 2;
+    // Calculate rod center from frame center directly (symmetric offset)
+    const offsetFromCenter = (rodCount / 2 - rodIdx - 0.5) * rodWidth;
+    const rodCenterX = frameCenter + offsetFromCenter;
 
     // Heaven bead first (increments by 5)
     if (rodState.heavenBeadActive) {

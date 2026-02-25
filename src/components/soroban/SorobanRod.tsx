@@ -1,5 +1,5 @@
 import { Bead } from './Bead';
-import { RodState, SIZES } from '../../models/types';
+import { RodState, SIZES, SizeConfig } from '../../models/types';
 
 interface SorobanRodProps {
   rodIndex: number;
@@ -8,6 +8,8 @@ interface SorobanRodProps {
   disabled?: boolean;
   highlighted?: boolean;
   size: 'small' | 'medium' | 'large';
+  /** Custom size config (overrides size preset if provided) */
+  sizeConfig?: SizeConfig;
 }
 
 export function SorobanRod({
@@ -17,8 +19,9 @@ export function SorobanRod({
   disabled = false,
   highlighted = false,
   size,
+  sizeConfig: customSizeConfig,
 }: SorobanRodProps) {
-  const sizeConfig = SIZES[size];
+  const sizeConfig = customSizeConfig || SIZES[size];
   const { beadSize, beadSpacing } = sizeConfig;
 
   // Calculate positions

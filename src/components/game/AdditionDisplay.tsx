@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { SIZES } from '../../models/types';
+import { SIZES, SizeConfig } from '../../models/types';
 
 // Addition problem phases
 export type AdditionPhase =
@@ -27,6 +27,12 @@ interface AdditionDisplayProps {
   // Refs for animation targeting
   onFirstCounterBoxRefs?: (refs: Map<number, DOMRect>) => void;
   onSumCounterBoxRefs?: (refs: Map<number, DOMRect>) => void;
+  // For direct feedback (streamlined correct answer flow)
+  onSumDigitBoxRefs?: (refs: Map<number, DOMRect>) => void;
+  flashingDigits?: Set<number>;  // Digits that should flash green
+  showSumForDirectFeedback?: boolean;  // Show sum row for beads to fly to (correct answer)
+  // Responsive sizing
+  sizeConfig?: SizeConfig;
 }
 
 // Single digit box component - sized to match soroban rod width
@@ -35,17 +41,22 @@ function DigitBox({
   verificationState,
   showAsCounter = false,
   rodWidth,
+  isFlashing = false,
+  isCompact = false,
 }: {
   value: number;
   verificationState?: 'pending' | 'sliding' | 'matched' | 'mismatched';
   showAsCounter?: boolean;
   rodWidth: number;
+  isFlashing?: boolean;  // Flash green on correct answer
+  isCompact?: boolean;
 }) {
-  const isMatched = verificationState === 'matched';
+  const isMatched = verificationState === 'matched' || isFlashing;
   const isMismatched = verificationState === 'mismatched';
   // Size the box to fit within the rod width with some margin
-  const boxWidth = rodWidth - 16; // Leave some margin on sides
-  const boxHeight = boxWidth * 1.1; // Slightly taller than wide
+  const margin = isCompact ? 12 : 16;
+  const boxWidth = rodWidth - margin;
+  const boxHeight = boxWidth * (isCompact ? 0.9 : 1.1); // Shorter in compact mode
   const fontSize = boxWidth * 0.65;
 
   return (
@@ -129,9 +140,14 @@ export function AdditionDisplay({
   sumDigitVerificationState,
   onFirstCounterBoxRefs,
   onSumCounterBoxRefs,
+  onSumDigitBoxRefs,
+  flashingDigits,
+  showSumForDirectFeedback = false,
+  sizeConfig,
 }: AdditionDisplayProps) {
   const firstCounterRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
   const sumCounterRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
+  const sumDigitRefs = useRef<Map<number, HTMLDivElement | null>>(new Map());
 
   // Report counter box positions
   const reportFirstPositions = useCallback(() => {
@@ -156,14 +172,36 @@ export function AdditionDisplay({
     onSumCounterBoxRefs(positions);
   }, [onSumCounterBoxRefs]);
 
-  // Report positions after mount and when counters shown
+  const reportSumDigitPositions = useCallback(() => {
+    if (!onSumDigitBoxRefs) return;
+    const positions = new Map<number, DOMRect>();
+    sumDigitRefs.current.forEach((el, rodIndex) => {
+      if (el) {
+        positions.set(rodIndex, el.getBoundingClientRect());
+      }
+    });
+    onSumDigitBoxRefs(positions);
+  }, [onSumDigitBoxRefs]);
+
+  // Determine what to show based on phase (moved before useEffect that depends on these)
+  const showSecondNumber = phase === 'SHOWING_SECOND' || phase === 'ENTERING_SUM' || phase === 'VERIFYING_SUM';
+  // Show sum target row ONLY during verification OR during direct feedback animation
+  const showSumTargetRow = phase === 'VERIFYING_SUM' || showSumForDirectFeedback;
+  // Only show counter row during verification (wrong answer path)
+  const showUserAnswerRow = phase === 'VERIFYING_SUM';
+
+  // Report positions after mount and when visibility changes
   useEffect(() => {
     const timer = setTimeout(() => {
       if (showFirstCounters) reportFirstPositions();
       if (showSumCounters) reportSumPositions();
+      // Report sum digit positions when sum row becomes visible
+      if (showSumTargetRow) {
+        reportSumDigitPositions();
+      }
     }, 50);
     return () => clearTimeout(timer);
-  }, [showFirstCounters, showSumCounters, reportFirstPositions, reportSumPositions]);
+  }, [showFirstCounters, showSumCounters, showSumTargetRow, reportFirstPositions, reportSumPositions, reportSumDigitPositions]);
 
   // Get digits for display
   const operand1Digits = numberToDigits(operand1, rodCount);
@@ -173,14 +211,10 @@ export function AdditionDisplay({
   // Rod indices for iteration (display order: left = highest)
   const rodIndices = Array.from({ length: rodCount }, (_, i) => rodCount - 1 - i);
 
-  // Determine what to show based on phase
-  const showSecondNumber = phase === 'SHOWING_SECOND' || phase === 'ENTERING_SUM' || phase === 'VERIFYING_SUM';
-  const showSumRow = phase === 'VERIFYING_SUM';
-  const showUserAnswerRow = phase === 'VERIFYING_SUM';
-
-  // Use same rod width as soroban for alignment
-  const rodWidth = SIZES.large.rodWidth; // 96px
+  // Use same rod width as soroban for alignment (responsive or fallback to large)
+  const rodWidth = sizeConfig?.rodWidth ?? SIZES.large.rodWidth;
   const totalWidth = rodCount * rodWidth;
+  const isCompact = sizeConfig?.isCompact ?? false;
 
   return (
     <div
@@ -188,7 +222,7 @@ export function AdditionDisplay({
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: 8,
+        gap: isCompact ? 4 : 8,
         width: totalWidth,
       }}
     >
@@ -211,6 +245,7 @@ export function AdditionDisplay({
                 value={digit}
                 verificationState={verificationState}
                 rodWidth={rodWidth}
+                isCompact={isCompact}
               />
             </div>
           );
@@ -245,6 +280,7 @@ export function AdditionDisplay({
                     verificationState={verificationState}
                     showAsCounter={true}
                     rodWidth={rodWidth}
+                    isCompact={isCompact}
                   />
                 </div>
               );
@@ -317,9 +353,9 @@ export function AdditionDisplay({
         )}
       </AnimatePresence>
 
-      {/* Correct sum row (appears during verification) */}
+      {/* Sum target row (visible during ENTERING_SUM for direct feedback targets) */}
       <AnimatePresence>
-        {showSumRow && (
+        {showSumTargetRow && (
           <motion.div
             style={{ display: 'flex', width: '100%' }}
             initial={{ opacity: 0, y: -10 }}
@@ -331,9 +367,11 @@ export function AdditionDisplay({
               const displayIndex = rodCount - 1 - rodIndex;
               const digit = sumDigits[displayIndex];
               const verificationState = sumDigitVerificationState?.get(rodIndex);
+              const isFlashing = flashingDigits?.has(rodIndex);
               return (
                 <div
                   key={`sum-${rodIndex}`}
+                  ref={(el) => { sumDigitRefs.current.set(rodIndex, el); }}
                   style={{
                     width: rodWidth,
                     display: 'flex',
@@ -343,7 +381,9 @@ export function AdditionDisplay({
                   <DigitBox
                     value={digit}
                     verificationState={verificationState}
+                    isFlashing={isFlashing}
                     rodWidth={rodWidth}
+                    isCompact={isCompact}
                   />
                 </div>
               );
@@ -380,6 +420,7 @@ export function AdditionDisplay({
                     verificationState={verificationState}
                     showAsCounter={true}
                     rodWidth={rodWidth}
+                    isCompact={isCompact}
                   />
                 </div>
               );

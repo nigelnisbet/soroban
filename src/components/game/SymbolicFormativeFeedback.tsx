@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { SIZES } from '../../models/types';
+import { SIZES, SizeConfig } from '../../models/types';
 import {
   BeadPosition,
   RodBeadState,
@@ -32,6 +32,7 @@ interface SymbolicFormativeFeedbackProps {
   rodCount: number;
   rodStates: RodBeadState[];
   advancedMode?: boolean;
+  sizeConfig?: SizeConfig;
 }
 
 // Splitting animation for heaven bead - lines emanate and beads appear at ends
@@ -46,7 +47,8 @@ function SplittingAnimation({
   onComplete: () => void;
   beadSize: number;
 }) {
-  const lineLength = 125;
+  // Line length scales proportionally with bead size (125 at beadSize 72)
+  const lineLength = beadSize * 1.74;
   const angles = [-60, -30, 0, 30, 60];
   const earthBeadWidth = beadSize * 0.85;
   const earthBeadHeight = beadSize * 0.7;
@@ -136,6 +138,7 @@ export function SymbolicFormativeFeedback({
   rodCount,
   rodStates,
   advancedMode = false,
+  sizeConfig,
 }: SymbolicFormativeFeedbackProps) {
   const [phase, setPhase] = useState<SymbolicPhase>('IDLE');
   const [allBeadPositions, setAllBeadPositions] = useState<BeadPosition[]>([]);
@@ -149,10 +152,30 @@ export function SymbolicFormativeFeedback({
   const [currentBeadIndex, setCurrentBeadIndex] = useState<number>(0);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [verificationState, setVerificationState] = useState<Map<number, 'pending' | 'sliding' | 'matched' | 'mismatched'>>(new Map());
+  // For train-style animation in advanced mode: track which beads are currently flying
+  const [trainBeadsFlying, setTrainBeadsFlying] = useState<Set<number>>(new Set());
+  const [trainBeadsCompleted, setTrainBeadsCompleted] = useState<Set<number>>(new Set());
+  // Track how many heaven beads were in the train (to know when to pause before earth beads)
+  const [heavenBeadCount, setHeavenBeadCount] = useState<number>(0);
+  // Track if we're in the "earth beads" phase after heaven train completes
+  const [earthBeadsPhase, setEarthBeadsPhase] = useState<boolean>(false);
+  // Track if we're pausing after heaven train (to prevent fan flash)
+  const [pausingAfterHeavenTrain, setPausingAfterHeavenTrain] = useState<boolean>(false);
+  // Track if we're pausing between rods (to observe the count)
+  const [pausingBetweenRods, setPausingBetweenRods] = useState<boolean>(false);
+  // Pre-computed correctness - determines animation speed in advanced mode
+  // (correct = fast, incorrect = slow/deliberate to help understand the mistake)
+  const [preComputedCorrect, setPreComputedCorrect] = useState<boolean | null>(null);
 
   const hasCompletedRef = useRef(false);
   const animationStartedRef = useRef(false);
+
+  // Determine if we should use fast animation
+  // Fast only when: advanced mode AND answer is correct
+  // Slow when: kids mode OR advanced mode with incorrect answer
+  const useFastAnimation = advancedMode && preComputedCorrect === true;
   const counterValuesRef = useRef<number[]>(Array(rodCount).fill(0));
+  const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Reset state when deactivated
   useEffect(() => {
@@ -165,6 +188,19 @@ export function SymbolicFormativeFeedback({
       setCurrentBeadIndex(0);
       setFlashPositions([]);
       setVerificationState(new Map());
+      setTrainBeadsFlying(new Set());
+      setTrainBeadsCompleted(new Set());
+      setHeavenBeadCount(0);
+      setEarthBeadsPhase(false);
+      setPausingAfterHeavenTrain(false);
+      setPausingBetweenRods(false);
+      setPreComputedCorrect(null);
+      processingRodCompletionRef.current = false;
+      // Clear any pending timer when deactivated
+      if (fadeTimerRef.current) {
+        clearTimeout(fadeTimerRef.current);
+        fadeTimerRef.current = null;
+      }
     }
   }, [isActive, rodCount]);
 
@@ -174,25 +210,28 @@ export function SymbolicFormativeFeedback({
     if (animationStartedRef.current) return;
     animationStartedRef.current = true;
 
-    const beadSize = SIZES.large.beadSize;
-    const beadSpacing = SIZES.large.beadSpacing;
-    const framePadding = SIZES.large.framepadding;
-    const rodWidth = SIZES.large.rodWidth;
+    // Use responsive size config or fall back to large
+    // Scale by mobileScale since sorobanRect is in scaled screen coordinates
+    const mobileScale = sizeConfig?.mobileScale ?? 1;
+    const beadSize = (sizeConfig?.beadSize ?? SIZES.large.beadSize) * mobileScale;
+    const beadSpacing = (sizeConfig?.beadSpacing ?? SIZES.large.beadSpacing) * mobileScale;
+    const framePadding = (sizeConfig?.framepadding ?? SIZES.large.framepadding) * mobileScale;
+    const rodWidth = (sizeConfig?.rodWidth ?? SIZES.large.rodWidth) * mobileScale;
 
     const heavenSectionHeight = beadSize * 1.5 + beadSpacing * 2;
-    const dividerHeight = 12;
+    const dividerHeight = 12 * mobileScale;
     const earthSectionStart = heavenSectionHeight + dividerHeight;
     const beadHeight = beadSize * 0.7;
     const stackSpacing = beadSpacing * 0.5;
     const heavenBeadHeight = beadSize * 0.9;
     const heavenActiveY = heavenSectionHeight - heavenBeadHeight - beadSpacing;
 
-    const borderWidth = 4;
+    const borderWidth = 4 * mobileScale;
     const contentTop = sorobanRect.top + borderWidth + framePadding;
 
-    const totalRodWidth = rodCount * rodWidth;
-    const frameContentWidth = totalRodWidth;
-    const frameLeft = sorobanRect.left + (sorobanRect.width - frameContentWidth - 2 * framePadding - 2 * borderWidth) / 2 + borderWidth + framePadding;
+    // The soroban frame uses box-sizing: border-box.
+    // Rod positions are calculated from the frame center for accuracy.
+    const frameCenter = sorobanRect.left + sorobanRect.width / 2;
 
     const beads: BeadPosition[] = [];
     const heavenBeadsToSplit: {x: number; y: number; rodIndex: number}[] = [];
@@ -201,32 +240,32 @@ export function SymbolicFormativeFeedback({
       const rodState = rodStates.find(r => r.rodIndex === rodIdx);
       if (!rodState) continue;
 
-      const rodCenterX = frameLeft + (rodCount - 1 - rodIdx) * rodWidth + rodWidth / 2;
+      // Calculate rod center from frame center directly
+      // With row-reverse layout: Rod 0 is rightmost, Rod (rodCount-1) is leftmost
+      // Rod positions are symmetric around the frame center
+      // For 4 rods: positions are at offsets of -1.5, -0.5, +0.5, +1.5 rod widths from center
+      // Rod 0 (rightmost) = center + (rodCount/2 - 0.5) * rodWidth = center + 1.5 * rodWidth
+      // Rod 3 (leftmost)  = center + (rodCount/2 - 3.5) * rodWidth = center - 1.5 * rodWidth
+      const offsetFromCenter = (rodCount / 2 - rodIdx - 0.5) * rodWidth;
+      const rodCenterX = frameCenter + offsetFromCenter;
 
       if (rodState.heavenBeadActive) {
-        if (advancedMode) {
-          beads.push({
-            id: `rod${rodIdx}-heaven-direct`,
-            x: rodCenterX,
-            y: contentTop + heavenActiveY + heavenBeadHeight / 2,
-            isFromHeaven: true,
-            rodIndex: rodIdx,
-          });
-        } else {
-          heavenBeadsToSplit.push({
-            x: rodCenterX,
-            y: contentTop + heavenActiveY + heavenBeadHeight / 2,
-            rodIndex: rodIdx,
-          });
-        }
+        const heavenY = contentTop + heavenActiveY + heavenBeadHeight / 2;
+        // Both modes now use the split/fan animation for heaven beads
+        heavenBeadsToSplit.push({
+          x: rodCenterX,
+          y: heavenY,
+          rodIndex: rodIdx,
+        });
       }
 
       for (let i = 0; i < rodState.earthBeadsActive; i++) {
         const positionY = earthSectionStart + beadSpacing + i * (beadHeight + stackSpacing);
+        const earthY = contentTop + positionY + beadHeight / 2;
         beads.push({
           id: `rod${rodIdx}-earth-${i}`,
           x: rodCenterX,
-          y: contentTop + positionY + beadHeight / 2,
+          y: earthY,
           isFromHeaven: false,
           rodIndex: rodIdx,
         });
@@ -245,8 +284,30 @@ export function SymbolicFormativeFeedback({
     });
 
     setRodsToAnimate(rodsWithBeads);
+
+    // Pre-compute correctness to determine animation speed
+    // In advanced mode: correct = fast animation, incorrect = slow/deliberate
+    let isAnswerCorrect = false;
+    if (advancedMode) {
+      let userValue = 0;
+      for (let rodIdx = 0; rodIdx < rodCount; rodIdx++) {
+        const rodState = rodStates.find(r => r.rodIndex === rodIdx);
+        if (rodState) {
+          const rodValue = (rodState.heavenBeadActive ? 5 : 0) + rodState.earthBeadsActive;
+          userValue += rodValue * Math.pow(10, rodIdx);
+        }
+      }
+      isAnswerCorrect = userValue === targetValue;
+      setPreComputedCorrect(isAnswerCorrect);
+    }
+
+    // Use fast animation only when: advanced mode AND correct
+    const shouldUseFastAnimation = advancedMode && isAnswerCorrect;
+
     setPhase('FADING_FRAME');
 
+    // Faster fade when using fast animation
+    const fadeDelay = shouldUseFastAnimation ? 400 : 800;
     const timer1 = setTimeout(() => {
       if (rodsWithBeads.length > 0) {
         const firstRod = rodsWithBeads[0];
@@ -262,21 +323,32 @@ export function SymbolicFormativeFeedback({
           setPhase('SPLITTING_HEAVEN');
         } else {
           setCurrentSplitBeadPosition(null);
+          // In advanced mode, earth-only rods animate sequentially (deliberate pace)
+          if (advancedMode && rodBeads.length > 0) {
+            setEarthBeadsPhase(true);
+          }
           setPhase('BEADS_FLYING');
         }
       } else {
         setPhase('VERIFYING_DIGITS');
       }
-    }, 800);
+    }, fadeDelay);
+    fadeTimerRef.current = timer1;
 
-    return () => clearTimeout(timer1);
-  }, [isActive, sorobanRect, rodCount, rodStates, advancedMode]);
+    // No cleanup here - timer is managed by deactivation effect
+    // This allows the effect to re-run when sorobanRect becomes available
+    // without canceling an in-progress timer
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive, sorobanRect, rodCount, advancedMode]);
 
   // Handle heaven bead split completion
   const handleSplitComplete = useCallback(() => {
     if (!currentSplitBeadPosition) return;
 
-    const lineLength = 125;
+    // Line length scales proportionally with bead size (125 at beadSize 72)
+    const mobileScale = sizeConfig?.mobileScale ?? 1;
+    const beadSize = (sizeConfig?.beadSize ?? SIZES.large.beadSize) * mobileScale;
+    const lineLength = beadSize * 1.74;
     const angles = [-60, -30, 0, 30, 60];
     const heavenBead = currentSplitBeadPosition;
 
@@ -294,20 +366,35 @@ export function SymbolicFormativeFeedback({
       });
     }
 
-    setCurrentRodBeads(prev => [...spreadBeads, ...prev]);
+    // Prepend spread beads to existing earth beads
+    const newRodBeads = [...spreadBeads, ...currentRodBeads];
+    setCurrentRodBeads(newRodBeads);
     setAllBeadPositions(prev => [...spreadBeads, ...prev]);
 
     setTimeout(() => {
       setCurrentSplitBeadPosition(null);
       setCurrentBeadIndex(0);
+
+      if (useFastAnimation) {
+        // Train-style animation: launch only the 5 heaven beads first
+        // Earth beads will animate sequentially after a pause
+        setTrainBeadsFlying(new Set([0, 1, 2, 3, 4]));
+        setHeavenBeadCount(5);
+        setEarthBeadsPhase(false);
+      } else if (advancedMode) {
+        // Incorrect answer in advanced mode: use deliberate sequential animation
+        // (same as kids mode but we set earthBeadsPhase for consistent slow pacing)
+        setEarthBeadsPhase(true);
+      }
+
       setPhase('BEADS_FLYING');
     }, 200);
-  }, [currentSplitBeadPosition]);
+  }, [currentSplitBeadPosition, useFastAnimation, advancedMode, currentRodBeads, sizeConfig]);
 
   // Handle bead arriving at counter
-  const handleBeadArrive = useCallback((rodIndex: number, isHeavenBead: boolean = false) => {
-    const incrementAmount = (advancedMode && isHeavenBead) ? 5 : 1;
-    const newValue = counterValuesRef.current[rodIndex] + incrementAmount;
+  const handleBeadArrive = useCallback((rodIndex: number, _isHeavenBead: boolean = false, trainBeadIndex?: number) => {
+    // Always increment by 1 (each bead = 1, even for split heaven beads)
+    const newValue = counterValuesRef.current[rodIndex] + 1;
     counterValuesRef.current[rodIndex] = newValue;
     setCounterValues([...counterValuesRef.current]);
     onCounterIncrement(rodIndex, newValue);
@@ -321,59 +408,146 @@ export function SymbolicFormativeFeedback({
       }]);
     }
 
-    setCurrentBeadIndex(prev => prev + 1);
-  }, [counterBoxPositions, onCounterIncrement, advancedMode]);
+    // Handle train-style completion tracking
+    if (trainBeadIndex !== undefined) {
+      setTrainBeadsCompleted(prev => new Set([...prev, trainBeadIndex]));
+    } else {
+      setCurrentBeadIndex(prev => prev + 1);
+    }
+  }, [counterBoxPositions, onCounterIncrement]);
 
   // Check if all beads for current rod have been animated
   useEffect(() => {
     if (phase !== 'BEADS_FLYING') return;
     if (counterBoxPositions.size === 0) return;
+    if (pausingBetweenRods) return; // Don't process during pause between rods
+    if (processingRodCompletionRef.current) return; // Don't re-process during completion
 
-    if (currentBeadIndex >= currentRodBeads.length) {
+    // Check if heaven beads train is complete (need to transition to earth beads)
+    const isHeavenTrainComplete = trainBeadsFlying.size > 0 &&
+      trainBeadsCompleted.size >= trainBeadsFlying.size &&
+      heavenBeadCount > 0 &&
+      !earthBeadsPhase &&
+      currentRodBeads.length > heavenBeadCount;
+
+    if (isHeavenTrainComplete) {
+      // Heaven beads done, pause to show the "5" then start earth beads sequentially
+      setTrainBeadsFlying(new Set());
+      setTrainBeadsCompleted(new Set());
+      setPausingAfterHeavenTrain(true); // Prevent fan flash during pause
+      // Brief pause to let user see the 5 before earth beads start
+      setTimeout(() => {
+        setPausingAfterHeavenTrain(false);
+        setEarthBeadsPhase(true);
+        // Start from after the heaven beads
+        setCurrentBeadIndex(heavenBeadCount);
+      }, 300); // 300ms pause to see the 5
+      return;
+    }
+
+    // Determine if current rod animation is complete
+    const isTrainComplete = trainBeadsFlying.size > 0 && trainBeadsCompleted.size >= trainBeadsFlying.size;
+    const isEarthBeadsComplete = earthBeadsPhase && currentBeadIndex >= currentRodBeads.length;
+    const isRegularComplete = trainBeadsFlying.size === 0 && !earthBeadsPhase && currentBeadIndex >= currentRodBeads.length;
+
+    if (isTrainComplete || isEarthBeadsComplete || isRegularComplete) {
+      processingRodCompletionRef.current = true; // Prevent re-runs during transition
       const currentIdx = rodsToAnimate.indexOf(currentAnimatingRodIndex);
       const nextIdx = currentIdx + 1;
 
+      // Reset train state for next rod and clear current beads to prevent flash
+      setTrainBeadsFlying(new Set());
+      setTrainBeadsCompleted(new Set());
+      setHeavenBeadCount(0);
+      setEarthBeadsPhase(false);
+      setPausingAfterHeavenTrain(false);
+      setCurrentRodBeads([]); // Clear beads immediately to prevent flash
+
       if (nextIdx < rodsToAnimate.length) {
-        const nextRod = rodsToAnimate[nextIdx];
-        setCurrentAnimatingRodIndex(nextRod);
+        // Small pause between rods to observe the count
+        setPausingBetweenRods(true);
+        const pauseDuration = useFastAnimation ? 250 : 400; // Shorter pause when fast animation
 
-        const rodBeads = allBeadPositions.filter(b => b.rodIndex === nextRod);
-        setCurrentRodBeads(rodBeads);
-        setCurrentBeadIndex(0);
+        setTimeout(() => {
+          setPausingBetweenRods(false);
+          processingRodCompletionRef.current = false; // Allow processing again
+          const nextRod = rodsToAnimate[nextIdx];
+          setCurrentAnimatingRodIndex(nextRod);
 
-        const heavenBead = allHeavenBeadPositions.find(h => h.rodIndex === nextRod);
-        if (heavenBead) {
-          setCurrentSplitBeadPosition(heavenBead);
-          setPhase('SPLITTING_HEAVEN');
-        }
+          const rodBeads = allBeadPositions.filter(b => b.rodIndex === nextRod);
+          setCurrentRodBeads(rodBeads);
+          setCurrentBeadIndex(0);
+
+          const heavenBead = allHeavenBeadPositions.find(h => h.rodIndex === nextRod);
+          if (heavenBead) {
+            setCurrentSplitBeadPosition(heavenBead);
+            setPhase('SPLITTING_HEAVEN');
+          } else {
+            // No heaven bead - go straight to flying
+            // In advanced mode, earth beads animate sequentially
+            if (advancedMode && rodBeads.length > 0) {
+              setEarthBeadsPhase(true);
+            }
+            setPhase('BEADS_FLYING');
+          }
+        }, pauseDuration);
       } else {
-        setTimeout(() => setPhase('VERIFYING_DIGITS'), 500);
+        // All rods done - clear bead state to prevent flash, then go to verification
+        setCurrentRodBeads([]);
+        setAllBeadPositions([]);
+        setAllHeavenBeadPositions([]);
+        setCurrentAnimatingRodIndex(-1);
+        // Faster transition to verification when using fast animation
+        const delay = useFastAnimation ? 200 : 500;
+        setTimeout(() => {
+          processingRodCompletionRef.current = false;
+          setPhase('VERIFYING_DIGITS');
+        }, delay);
       }
     }
-  }, [phase, currentBeadIndex, currentRodBeads.length, rodsToAnimate, currentAnimatingRodIndex, allBeadPositions, allHeavenBeadPositions, counterBoxPositions]);
+  }, [phase, currentBeadIndex, currentRodBeads.length, rodsToAnimate, currentAnimatingRodIndex, allBeadPositions, allHeavenBeadPositions, counterBoxPositions, trainBeadsFlying, trainBeadsCompleted, advancedMode, heavenBeadCount, earthBeadsPhase, currentRodBeads, pausingBetweenRods, useFastAnimation]);
+
+  // Track if verification has started to prevent re-running
+  const verificationStartedRef = useRef(false);
+  // Track if we're in the middle of processing rod completion to prevent re-runs
+  const processingRodCompletionRef = useRef(false);
 
   // Handle digit verification
   useEffect(() => {
-    if (phase !== 'VERIFYING_DIGITS') return;
+    if (phase !== 'VERIFYING_DIGITS') {
+      verificationStartedRef.current = false;
+      return;
+    }
+    if (verificationStartedRef.current) return;
+    verificationStartedRef.current = true;
+
+    // Track verification state locally during async verification
+    const localVerificationState = new Map<number, 'pending' | 'sliding' | 'matched' | 'mismatched'>();
 
     const verifyNextDigit = async (rodIndex: number): Promise<boolean> => {
       const counterDigit = counterValuesRef.current[rodIndex] ?? 0;
       const targetDigit = getDigitForRod(targetValue, rodIndex);
 
-      const slidingState = new Map(verificationState);
-      slidingState.set(rodIndex, 'sliding');
+      // Update sliding state
+      localVerificationState.set(rodIndex, 'sliding');
+      const slidingState = new Map(localVerificationState);
       setVerificationState(slidingState);
-      onDigitVerificationStateChange(slidingState);
+      // Call parent callback after a microtask to avoid setState during render
+      setTimeout(() => onDigitVerificationStateChange(slidingState), 0);
 
-      await new Promise(resolve => setTimeout(resolve, 400));
+      // Faster slide animation when using fast animation
+      await new Promise(resolve => setTimeout(resolve, useFastAnimation ? 200 : 400));
 
       const isMatch = counterDigit === targetDigit;
-      const resultState = new Map(slidingState);
-      resultState.set(rodIndex, isMatch ? 'matched' : 'mismatched');
+      // Update result state
+      localVerificationState.set(rodIndex, isMatch ? 'matched' : 'mismatched');
+      const resultState = new Map(localVerificationState);
       setVerificationState(resultState);
-      onDigitVerificationStateChange(resultState);
+      // Call parent callback after a microtask to avoid setState during render
+      setTimeout(() => onDigitVerificationStateChange(resultState), 0);
 
-      await new Promise(resolve => setTimeout(resolve, isMatch ? 500 : 300));
+      // Faster pause after match/mismatch when using fast animation
+      await new Promise(resolve => setTimeout(resolve, useFastAnimation ? (isMatch ? 250 : 200) : (isMatch ? 500 : 300)));
       return isMatch;
     };
 
@@ -391,7 +565,7 @@ export function SymbolicFormativeFeedback({
     };
 
     runVerification();
-  }, [phase, rodCount, targetValue, onDigitVerificationStateChange, verificationState]);
+  }, [phase, rodCount, targetValue, onDigitVerificationStateChange, useFastAnimation]);
 
   // Handle showing result
   useEffect(() => {
@@ -399,18 +573,23 @@ export function SymbolicFormativeFeedback({
 
     if (!hasCompletedRef.current) {
       hasCompletedRef.current = true;
+      // Faster result display when using fast animation
+      const correctDelay = useFastAnimation ? 800 : 1500;
+      const incorrectDelay = useFastAnimation ? 1500 : 2500;
       setTimeout(() => {
         setPhase('COMPLETE');
         onComplete(isCorrect);
-      }, isCorrect ? 1500 : 2500);
+      }, isCorrect ? correctDelay : incorrectDelay);
     }
-  }, [phase, isCorrect, onComplete]);
+  }, [phase, isCorrect, onComplete, useFastAnimation]);
 
   if (!isActive || phase === 'IDLE' || phase === 'COMPLETE') {
     return null;
   }
 
-  const beadSize = SIZES.large.beadSize;
+  // On mobile, beads are scaled down - use scaled size for rendering
+  const mobileScale = sizeConfig?.mobileScale ?? 1;
+  const beadSize = (sizeConfig?.beadSize ?? SIZES.large.beadSize) * mobileScale;
 
   return (
     <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 100 }}>
@@ -447,12 +626,14 @@ export function SymbolicFormativeFeedback({
       ))}
 
       {/* Static beads for rods not yet animated */}
-      {(phase === 'SPLITTING_HEAVEN' || phase === 'BEADS_FLYING') && allBeadPositions
+      {(phase === 'SPLITTING_HEAVEN' || phase === 'BEADS_FLYING') && currentAnimatingRodIndex >= 0 && allBeadPositions
         .filter(bead => {
+          // Only show beads from rods that haven't started animating yet
           const rodIdx = rodsToAnimate.indexOf(bead.rodIndex);
           const currentRodIdx = rodsToAnimate.indexOf(currentAnimatingRodIndex);
-          if (phase === 'SPLITTING_HEAVEN' && bead.rodIndex === currentAnimatingRodIndex) {
-            return !bead.id.includes('heaven-');
+          // Never show beads from the currently animating rod in this section
+          if (bead.rodIndex === currentAnimatingRodIndex) {
+            return false;
           }
           return rodIdx > currentRodIdx;
         })
@@ -465,15 +646,19 @@ export function SymbolicFormativeFeedback({
             endY={bead.y}
             delay={0}
             onArrive={() => {}}
-            isHeaven={false}
+            isHeaven={bead.isFromHeaven}
             beadSize={beadSize}
             isStatic={true}
           />
         ))}
 
-      {/* Static heaven beads for rods not yet animated */}
-      {(phase === 'SPLITTING_HEAVEN' || phase === 'BEADS_FLYING') && allHeavenBeadPositions
+      {/* Static heaven beads for rods not yet animated (non-advanced mode only) */}
+      {(phase === 'SPLITTING_HEAVEN' || phase === 'BEADS_FLYING') && currentAnimatingRodIndex >= 0 && allHeavenBeadPositions
         .filter(pos => {
+          // Never show the currently animating rod's heaven bead here
+          if (pos.rodIndex === currentAnimatingRodIndex) {
+            return false;
+          }
           const rodIdx = rodsToAnimate.indexOf(pos.rodIndex);
           const currentRodIdx = rodsToAnimate.indexOf(currentAnimatingRodIndex);
           return rodIdx > currentRodIdx;
@@ -493,8 +678,8 @@ export function SymbolicFormativeFeedback({
           />
         ))}
 
-      {/* Static beads from current rod that haven't flown yet */}
-      {phase === 'BEADS_FLYING' && currentRodBeads
+      {/* Static beads from current rod that haven't flown yet (non-train mode only) */}
+      {phase === 'BEADS_FLYING' && trainBeadsFlying.size === 0 && !earthBeadsPhase && !pausingAfterHeavenTrain && !pausingBetweenRods && currentRodBeads
         .filter((_, index) => index > currentBeadIndex)
         .map((bead) => (
           <FeedbackBead
@@ -510,6 +695,76 @@ export function SymbolicFormativeFeedback({
             isStatic={true}
           />
         ))}
+
+      {/* Static earth beads that haven't flown yet during earth phase */}
+      {phase === 'BEADS_FLYING' && earthBeadsPhase && trainBeadsFlying.size === 0 && !pausingBetweenRods && currentRodBeads
+        .filter((_, index) => index > currentBeadIndex)
+        .map((bead) => (
+          <FeedbackBead
+            key={`queued-earth-${bead.id}`}
+            startX={bead.x}
+            startY={bead.y}
+            endX={bead.x}
+            endY={bead.y}
+            delay={0}
+            onArrive={() => {}}
+            isHeaven={bead.isFromHeaven}
+            beadSize={beadSize}
+            isStatic={true}
+          />
+        ))}
+
+      {/* Static earth beads waiting during heaven train animation */}
+      {phase === 'BEADS_FLYING' && trainBeadsFlying.size > 0 && heavenBeadCount > 0 && !pausingBetweenRods && currentRodBeads
+        .filter((_, index) => index >= heavenBeadCount)
+        .map((bead) => (
+          <FeedbackBead
+            key={`waiting-earth-${bead.id}`}
+            startX={bead.x}
+            startY={bead.y}
+            endX={bead.x}
+            endY={bead.y}
+            delay={0}
+            onArrive={() => {}}
+            isHeaven={bead.isFromHeaven}
+            beadSize={beadSize}
+            isStatic={true}
+          />
+        ))}
+
+      {/* Static earth beads waiting during pause after heaven train */}
+      {phase === 'BEADS_FLYING' && pausingAfterHeavenTrain && heavenBeadCount > 0 && !pausingBetweenRods && currentRodBeads
+        .filter((_, index) => index >= heavenBeadCount)
+        .map((bead) => (
+          <FeedbackBead
+            key={`pausing-earth-${bead.id}`}
+            startX={bead.x}
+            startY={bead.y}
+            endX={bead.x}
+            endY={bead.y}
+            delay={0}
+            onArrive={() => {}}
+            isHeaven={bead.isFromHeaven}
+            beadSize={beadSize}
+            isStatic={true}
+          />
+        ))}
+
+      {/* Static earth beads from current rod during heaven split */}
+      {phase === 'SPLITTING_HEAVEN' && currentRodBeads.map((bead) => (
+        <FeedbackBead
+          key={`splitting-earth-${bead.id}`}
+          startX={bead.x}
+          startY={bead.y}
+          endX={bead.x}
+          endY={bead.y}
+          delay={0}
+          onArrive={() => {}}
+          isHeaven={bead.isFromHeaven}
+          beadSize={beadSize}
+          isStatic={true}
+        />
+      ))}
 
       {/* Splitting animation */}
       {phase === 'SPLITTING_HEAVEN' && currentSplitBeadPosition && (
@@ -561,8 +816,64 @@ export function SymbolicFormativeFeedback({
         </>
       )}
 
-      {/* Flying beads */}
-      {phase === 'BEADS_FLYING' && currentRodBeads.map((bead, index) => {
+      {/* Flying beads - train-style for advanced mode */}
+      {phase === 'BEADS_FLYING' && trainBeadsFlying.size > 0 && !pausingBetweenRods && currentRodBeads
+        .filter((_, index) => trainBeadsFlying.has(index) && !trainBeadsCompleted.has(index))
+        .map((bead) => {
+          const beadIndex = currentRodBeads.indexOf(bead);
+          const counterBox = counterBoxPositions.get(bead.rodIndex);
+          if (!counterBox) return null;
+
+          const targetX = counterBox.left + counterBox.width / 2;
+          const targetY = counterBox.top + counterBox.height / 2;
+
+          // Stagger the delays for train effect - faster for advanced mode
+          const staggerDelay = beadIndex * 0.08; // 80ms between each bead
+
+          return (
+            <FeedbackBead
+              key={`flying-train-${bead.id}`}
+              startX={bead.x}
+              startY={bead.y}
+              endX={targetX}
+              endY={targetY}
+              delay={staggerDelay}
+              duration={0.35} // Faster flight
+              onArrive={() => handleBeadArrive(bead.rodIndex, bead.isFromHeaven, beadIndex)}
+              isHeaven={false}
+              beadSize={beadSize}
+            />
+          );
+        })}
+
+      {/* Flying beads - sequential for earth beads in advanced mode (after heaven train) */}
+      {phase === 'BEADS_FLYING' && earthBeadsPhase && trainBeadsFlying.size === 0 && !pausingBetweenRods && currentRodBeads.map((bead, index) => {
+        if (index !== currentBeadIndex) return null;
+
+        const counterBox = counterBoxPositions.get(bead.rodIndex);
+        if (!counterBox) return null;
+
+        const targetX = counterBox.left + counterBox.width / 2;
+        const targetY = counterBox.top + counterBox.height / 2;
+
+        return (
+          <FeedbackBead
+            key={`flying-earth-${bead.id}`}
+            startX={bead.x}
+            startY={bead.y}
+            endX={targetX}
+            endY={targetY}
+            delay={0.15} // Slightly slower, more deliberate
+            duration={0.45} // Slightly slower flight
+            onArrive={() => handleBeadArrive(bead.rodIndex, bead.isFromHeaven)}
+            isHeaven={bead.isFromHeaven}
+            beadSize={beadSize}
+          />
+        );
+      })}
+
+      {/* Flying beads - sequential for non-advanced mode */}
+      {phase === 'BEADS_FLYING' && !earthBeadsPhase && !pausingAfterHeavenTrain && !pausingBetweenRods && trainBeadsFlying.size === 0 && currentRodBeads.map((bead, index) => {
         if (index !== currentBeadIndex) return null;
 
         const counterBox = counterBoxPositions.get(bead.rodIndex);

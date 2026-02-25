@@ -15,6 +15,18 @@ export interface SorobanState {
   totalValue: number;
 }
 
+// Custom size configuration for responsive sizing
+export interface SizeConfig {
+  beadSize: number;
+  beadSpacing: number;
+  rodWidth: number;
+  framepadding: number;
+  /** Whether we're in compact mode (small viewport height) */
+  isCompact?: boolean;
+  /** Scale factor for mobile devices (0.85 = 85% scale) - defaults to 1 */
+  mobileScale?: number;
+}
+
 // Props for the Soroban component
 export interface SorobanProps {
   rodCount: number;
@@ -24,6 +36,8 @@ export interface SorobanProps {
   highlightRod?: number;
   showValue?: boolean;
   size?: 'small' | 'medium' | 'large';
+  /** Custom size config (overrides size preset if provided) */
+  sizeConfig?: SizeConfig;
 }
 
 // === GAME TYPES ===
@@ -92,7 +106,8 @@ export type DisplayMode =
   | 'symbolic'          // Numeric digits - beads fly to counters (with heaven bead fanning)
   | 'symbolicAdvanced'  // Numeric digits - heaven beads increment by 5 directly (no fanning)
   | 'symbolicInput'     // Reverse symbolic - user inputs digits via number pad to match soroban
-  | 'addition';         // Multi-step addition: enter first number, then add second number
+  | 'addition'          // Multi-step addition: enter first number, then add second number
+  | 'rollingAddition';  // Chain addition: sum becomes next addend, soroban grows as needed
 
 export interface LevelDefinition {
   id: number;

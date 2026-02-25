@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { SIZES } from '../../models/types';
+import { SIZES, SizeConfig } from '../../models/types';
 import {
   BeadPosition,
   RodBeadState,
@@ -25,6 +25,7 @@ interface AdditionFormativeFeedbackProps {
   onComplete: (isCorrect: boolean) => void;
   rodCount: number;
   rodStates: RodBeadState[];
+  sizeConfig?: SizeConfig;
 }
 
 export function AdditionFormativeFeedback({
@@ -37,6 +38,7 @@ export function AdditionFormativeFeedback({
   onComplete,
   rodCount,
   rodStates,
+  sizeConfig,
 }: AdditionFormativeFeedbackProps) {
   const [phase, setPhase] = useState<FeedbackPhase>('IDLE');
   const [allBeadPositions, setAllBeadPositions] = useState<BeadPosition[]>([]);
@@ -112,7 +114,7 @@ export function AdditionFormativeFeedback({
 
     animationStartedRef.current = true;
 
-    const beads = calculateBeadPositions(rodStates, sorobanRect, rodCount);
+    const beads = calculateBeadPositions(rodStates, sorobanRect, rodCount, sizeConfig);
     setAllBeadPositions(beads);
 
     // Start animation
@@ -194,7 +196,9 @@ export function AdditionFormativeFeedback({
     return null;
   }
 
-  const beadSize = SIZES.large.beadSize;
+  // On mobile, beads are scaled down - use scaled size for rendering
+  const mobileScale = sizeConfig?.mobileScale ?? 1;
+  const beadSize = (sizeConfig?.beadSize ?? SIZES.large.beadSize) * mobileScale;
 
   return (
     <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 100 }}>

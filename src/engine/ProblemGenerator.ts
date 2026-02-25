@@ -147,6 +147,51 @@ function generateAdditionProblem(level: LevelDefinition): Problem {
   };
 }
 
+// Generate a rolling addition problem where operand1 is the previous sum
+// Returns problem with dynamically calculated rodCount based on expected sum
+export function generateRollingAdditionProblem(
+  previousSum: number | null,
+  baseRodCount: number = 3
+): Problem {
+  // First problem: generate a 3-digit starting number
+  if (previousSum === null) {
+    const operand1 = Math.floor(Math.random() * 400) + 100; // 100-499
+    const operand2 = Math.floor(Math.random() * 400) + 100; // 100-499
+    const sum = operand1 + operand2;
+    return {
+      id: generateId(),
+      type: 'ADDITION',
+      targetValue: sum,
+      objects: [],
+      requiredRods: baseRodCount,
+      operand1,
+      operand2,
+    };
+  }
+
+  // Rolling: previousSum becomes operand1
+  const operand1 = previousSum;
+
+  // Generate operand2 as a 3-digit number (100-999)
+  // Keep it reasonable so sums don't explode too fast
+  const operand2 = Math.floor(Math.random() * 400) + 100; // 100-499
+
+  const sum = operand1 + operand2;
+
+  // Calculate required rods based on sum
+  const requiredRods = sum >= 10000 ? 5 : sum >= 1000 ? 4 : baseRodCount;
+
+  return {
+    id: generateId(),
+    type: 'ADDITION',
+    targetValue: sum,
+    objects: [],
+    requiredRods,
+    operand1,
+    operand2,
+  };
+}
+
 // Generate a single problem
 export function generateProblem(
   level: LevelDefinition,
@@ -179,25 +224,13 @@ export function generateProblem(
     arrangement = Math.random() > 0.5 ? 'grid' : 'scattered';
   }
 
-  const problem = {
+  return {
     id: generateId(),
     type: problemType,
     targetValue,
     objects: generateObjects(targetValue, objectTypes, arrangement),
     requiredRods: rodCount,
   };
-
-  // DEBUG: Log if we ever generate a zero
-  if (targetValue === 0) {
-    console.error('[DEBUG ProblemGenerator] Generated problem with targetValue 0!', {
-      forcedValue,
-      rawValue,
-      valueRange,
-      problem,
-    });
-  }
-
-  return problem;
 }
 
 // Generate a sequence of problems for a level
