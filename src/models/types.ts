@@ -34,6 +34,8 @@ export interface SorobanProps {
   onValueChange?: (value: number) => void;
   disabled?: boolean;
   highlightRod?: number;
+  /** Highlight multiple rods with a glow effect */
+  highlightRods?: number[];
   showValue?: boolean;
   size?: 'small' | 'medium' | 'large';
   /** Custom size config (overrides size preset if provided) */

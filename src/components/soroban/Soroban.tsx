@@ -15,6 +15,7 @@ export function Soroban({
   onValueChange,
   disabled = false,
   highlightRod,
+  highlightRods,
   showValue = true,
   size = 'medium',
   sizeConfig: customSizeConfig,
@@ -158,6 +159,7 @@ export function Soroban({
               onStateChange={(newState) => handleRodStateChange(rod.rodIndex, newState)}
               disabled={disabled}
               highlighted={highlightRod === rod.rodIndex}
+              glowHighlight={highlightRods?.includes(rod.rodIndex)}
               size={size}
               sizeConfig={customSizeConfig}
             />

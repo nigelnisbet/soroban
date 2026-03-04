@@ -7,6 +7,8 @@ interface SorobanRodProps {
   onStateChange: (newState: RodState) => void;
   disabled?: boolean;
   highlighted?: boolean;
+  /** Strong glow highlight for multi-rod selection */
+  glowHighlight?: boolean;
   size: 'small' | 'medium' | 'large';
   /** Custom size config (overrides size preset if provided) */
   sizeConfig?: SizeConfig;
@@ -18,6 +20,7 @@ export function SorobanRod({
   onStateChange,
   disabled = false,
   highlighted = false,
+  glowHighlight = false,
   size,
   sizeConfig: customSizeConfig,
 }: SorobanRodProps) {
@@ -100,6 +103,13 @@ export function SorobanRod({
         position: 'relative',
         width: sizeConfig.rodWidth,
         height: totalHeight,
+        // Glow highlight effect
+        ...(glowHighlight && {
+          background: 'rgba(255, 215, 0, 0.15)',
+          boxShadow: 'inset 0 0 20px rgba(255, 215, 0, 0.4), 0 0 15px rgba(255, 215, 0, 0.3)',
+          borderRadius: 4,
+        }),
+        transition: 'all 0.2s ease',
       }}
     >
       {/* The rod (vertical beam) */}

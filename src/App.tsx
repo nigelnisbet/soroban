@@ -2,13 +2,14 @@ import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Soroban } from './components/soroban/Soroban';
 import { GameContainer } from './components/game/GameContainer';
+import { MultiplicationPrototype } from './components/multiplication/MultiplicationPrototype';
 import { ALL_LEVELS, DEMO_LEVELS, COMPLEMENT_LEVELS } from './levels/level1-counting';
 import { useProgressStore } from './store/progressStore';
 import { LevelDefinition } from './models/types';
 import { calculateSessionStats } from './engine/LearningEngine';
 import './App.css';
 
-type Screen = 'home' | 'practice' | 'game';
+type Screen = 'home' | 'practice' | 'game' | 'multiplication';
 type LevelSet = 'demo' | 'full' | 'complements';
 
 function App() {
@@ -289,6 +290,25 @@ function App() {
           >
             Free Practice
           </motion.button>
+
+          {/* Multiplication prototype button */}
+          <motion.button
+            onClick={() => setScreen('multiplication')}
+            style={{
+              padding: '16px 32px',
+              fontSize: 18,
+              color: 'white',
+              background: 'linear-gradient(135deg, #9C27B0 0%, #6A1B9A 100%)',
+              border: 'none',
+              borderRadius: 12,
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(156, 39, 176, 0.3)',
+            }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            Multiplication Lab
+          </motion.button>
         </motion.div>
       )}
 
@@ -415,6 +435,18 @@ function App() {
             onExit={handleExitGame}
             onLevelComplete={handleLevelComplete}
           />
+        </motion.div>
+      )}
+
+      {screen === 'multiplication' && (
+        <motion.div
+          key="multiplication"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{ width: '100%', minHeight: '100vh' }}
+        >
+          <MultiplicationPrototype onBack={() => setScreen('home')} />
         </motion.div>
       )}
     </AnimatePresence>
