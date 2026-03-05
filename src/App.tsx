@@ -3,13 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Soroban } from './components/soroban/Soroban';
 import { GameContainer } from './components/game/GameContainer';
 import { MultiplicationPrototype } from './components/multiplication/MultiplicationPrototype';
+import { SorobanDrill } from './components/drill/SorobanDrill';
 import { ALL_LEVELS, DEMO_LEVELS, COMPLEMENT_LEVELS } from './levels/level1-counting';
 import { useProgressStore } from './store/progressStore';
 import { LevelDefinition } from './models/types';
 import { calculateSessionStats } from './engine/LearningEngine';
 import './App.css';
 
-type Screen = 'home' | 'practice' | 'game' | 'multiplication';
+type Screen = 'home' | 'practice' | 'game' | 'multiplication' | 'drill';
 type LevelSet = 'demo' | 'full' | 'complements';
 
 function App() {
@@ -291,6 +292,25 @@ function App() {
             Free Practice
           </motion.button>
 
+          {/* Drill button */}
+          <motion.button
+            onClick={() => setScreen('drill')}
+            style={{
+              padding: '16px 32px',
+              fontSize: 18,
+              color: 'white',
+              background: 'linear-gradient(135deg, #FF5722 0%, #E64A19 100%)',
+              border: 'none',
+              borderRadius: 12,
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(255, 87, 34, 0.3)',
+            }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            Speed Drill
+          </motion.button>
+
           {/* Multiplication prototype button */}
           <motion.button
             onClick={() => setScreen('multiplication')}
@@ -447,6 +467,18 @@ function App() {
           style={{ width: '100%', minHeight: '100vh' }}
         >
           <MultiplicationPrototype onBack={() => setScreen('home')} />
+        </motion.div>
+      )}
+
+      {screen === 'drill' && (
+        <motion.div
+          key="drill"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{ width: '100%', minHeight: '100vh' }}
+        >
+          <SorobanDrill onBack={() => setScreen('home')} />
         </motion.div>
       )}
     </AnimatePresence>
