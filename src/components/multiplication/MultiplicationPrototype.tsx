@@ -18,6 +18,7 @@ const spinnerStyles = `
 interface MultiplicationPrototypeProps {
   onBack: () => void;
   mode: 'area' | 'symbolic';
+  initialLevel?: '2x2' | '2x3' | '3x3';
 }
 
 // Mini bead component for the soroban arms
@@ -859,8 +860,20 @@ function SymbolicMultiplicationModel({ onBack, level }: {
   );
 }
 
-export function MultiplicationPrototype({ onBack, mode }: MultiplicationPrototypeProps) {
-  const [selectedLevel, setSelectedLevel] = useState<SymbolicLevel | null>(null);
+export function MultiplicationPrototype({ onBack, mode, initialLevel }: MultiplicationPrototypeProps) {
+  // Map initialLevel string to actual level object
+  const getInitialLevel = (): SymbolicLevel | null => {
+    if (!initialLevel) return null;
+    const levelMap: Record<string, number> = {
+      '2x2': 1,
+      '2x3': 2,
+      '3x3': 3,
+    };
+    const levelId = levelMap[initialLevel];
+    return SYMBOLIC_LEVELS.find(l => l.id === levelId) || null;
+  };
+
+  const [selectedLevel, setSelectedLevel] = useState<SymbolicLevel | null>(getInitialLevel);
 
   // Symbolic model implementation
   if (mode === 'symbolic') {
