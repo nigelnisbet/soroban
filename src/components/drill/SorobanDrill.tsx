@@ -26,6 +26,7 @@ interface DrillProblem {
   addend: number;
   targetValue: number;
   rodCount: number;
+  operation: 'add' | 'subtract';
 }
 
 // Analyze what kind of carry pattern an addition requires
@@ -72,73 +73,117 @@ function generateProblem(belt: BeltLevel): DrillProblem {
   let addend: number;
   let attempts = 0;
   const maxAttempts = 100;
+  const operation: 'add' | 'subtract' = Math.random() < 0.5 ? 'add' : 'subtract';
 
   while (attempts < maxAttempts) {
     attempts++;
 
     switch (belt) {
-      case 0: // White - Single column, no carries, no heaven flip
-        // Examples: 21 + 3, 127 + 20, 3451 + 300
+      case 0: // White - Single column, no carries/borrows, no heaven flip
+        // Examples: 21 + 3, 127 + 20, 87 - 4, 145 - 30
         {
           const place = Math.floor(Math.random() * 3); // ones, tens, or hundreds
           const placeValue = Math.pow(10, place);
           const baseDigits = Math.floor(Math.random() * 3) + 1; // 1-3 extra digits
-          startValue = Math.floor(Math.random() * Math.pow(10, baseDigits + place)) + placeValue;
-          const startDigit = Math.floor(startValue / placeValue) % 10;
-          const startEarth = startDigit % 5;
-          // Add 1-4 but stay within earth beads and don't cross 5 or 10
-          const maxAdd = Math.min(4 - startEarth, 4);
-          if (maxAdd < 1) continue;
-          addend = (Math.floor(Math.random() * maxAdd) + 1) * placeValue;
+
+          if (operation === 'add') {
+            startValue = Math.floor(Math.random() * Math.pow(10, baseDigits + place)) + placeValue;
+            const startDigit = Math.floor(startValue / placeValue) % 10;
+            const startEarth = startDigit % 5;
+            // Add 1-4 but stay within earth beads and don't cross 5 or 10
+            const maxAdd = Math.min(4 - startEarth, 4);
+            if (maxAdd < 1) continue;
+            addend = (Math.floor(Math.random() * maxAdd) + 1) * placeValue;
+          } else {
+            // Subtraction - ensure we don't go negative and stay within earth beads
+            startValue = Math.floor(Math.random() * Math.pow(10, baseDigits + place)) + placeValue * 2;
+            const startDigit = Math.floor(startValue / placeValue) % 10;
+            const startEarth = startDigit % 5;
+            // Subtract 1-4 but stay within earth beads and don't cross 5 or 0
+            const maxSub = Math.min(startEarth, 4);
+            if (maxSub < 1) continue;
+            addend = (Math.floor(Math.random() * maxSub) + 1) * placeValue;
+            // Ensure we don't go negative
+            if (startValue - addend < 0) continue;
+          }
         }
         break;
 
       case 1: // Yellow - Single column, heaven bead flip
-        // Examples: 21 + 7, 143 + 50
+        // Examples: 21 + 7 (4→11, heaven flip), 87 - 4 (7→3, heaven flip)
         {
           const place = Math.floor(Math.random() * 3);
           const placeValue = Math.pow(10, place);
-          startValue = Math.floor(Math.random() * 900) + 10 + placeValue;
+          startValue = Math.floor(Math.random() * 900) + 10 + placeValue * 2;
           const startDigit = Math.floor(startValue / placeValue) % 10;
-          // Need to cross 5 but not 10
-          if (startDigit < 5) {
-            const needed = 5 - startDigit;
-            const extra = Math.floor(Math.random() * (9 - 5 - startDigit + 1));
-            addend = (needed + extra) * placeValue;
-            if (startDigit + Math.floor(addend / placeValue) >= 10) continue;
+
+          if (operation === 'add') {
+            // Need to cross 5 but not 10
+            if (startDigit < 5) {
+              const needed = 5 - startDigit;
+              const extra = Math.floor(Math.random() * (9 - 5 - startDigit + 1));
+              addend = (needed + extra) * placeValue;
+              if (startDigit + Math.floor(addend / placeValue) >= 10) continue;
+            } else {
+              continue; // Skip for now
+            }
           } else {
-            // Start >= 5, need to go below 5... but we're doing addition only
-            // So start with 0-4 and add enough to get to 5-9
-            continue; // Skip this case for now
+            // Subtraction - cross the 5 boundary going down
+            if (startDigit >= 5) {
+              const maxSub = startDigit - 5 + 1; // Can subtract to cross 5
+              addend = (Math.floor(Math.random() * Math.min(maxSub, 4)) + 1) * placeValue;
+              if (startValue - addend < 0) continue;
+            } else {
+              continue; // Need to start >=5 to cross down
+            }
           }
         }
         break;
 
-      case 2: // Orange - Two columns, simple carry (no heaven complexity in the carry)
-        // Examples: 12 + 9, 134 + 80
+      case 2: // Orange - Two columns, simple carry/borrow
+        // Examples: 12 + 9 (carry), 34 - 8 (borrow)
         {
-          startValue = Math.floor(Math.random() * 900) + 10;
-          const onesDigit = startValue % 10;
-          // Need ones to overflow but not involve heaven flips
-          if (onesDigit < 5) {
-            // Add enough to carry but result stays under 5
-            const needed = 10 - onesDigit;
-            const extra = Math.floor(Math.random() * Math.min(4, 14 - onesDigit - needed));
-            addend = needed + extra;
-            if (addend > 9 || addend < 1) continue;
-            const resultOnes = (onesDigit + addend) % 10;
-            if (resultOnes >= 5) continue; // Would flip heaven
+          startValue = Math.floor(Math.random() * 900) + 20;
+
+          if (operation === 'add') {
+            const onesDigit = startValue % 10;
+            // Need ones to overflow but not involve heaven flips
+            if (onesDigit < 5) {
+              const needed = 10 - onesDigit;
+              const extra = Math.floor(Math.random() * Math.min(4, 14 - onesDigit - needed));
+              addend = needed + extra;
+              if (addend > 9 || addend < 1) continue;
+              const resultOnes = (onesDigit + addend) % 10;
+              if (resultOnes >= 5) continue;
+            } else {
+              continue;
+            }
           } else {
-            continue; // Skip heaven cases for this belt
+            // Subtraction with borrowing
+            const onesDigit = startValue % 10;
+            // Need to borrow from tens
+            if (onesDigit < 5) {
+              addend = (Math.floor(Math.random() * (9 - onesDigit)) + onesDigit + 1);
+              if (addend > 9) continue;
+              if (startValue - addend < 0) continue;
+            } else {
+              continue;
+            }
           }
         }
         break;
 
-      case 3: // Green - Two columns with heaven bead
-        // Examples: 17 + 9, 163 + 80
+      case 3: // Green - Two columns with heaven bead and carry/borrow
+        // Examples: 17 + 9, 163 + 80, 72 - 8
         {
-          startValue = Math.floor(Math.random() * 900) + 10;
+          startValue = Math.floor(Math.random() * 900) + 20;
           addend = Math.floor(Math.random() * 9) + 1;
+
+          if (operation === 'subtract' && addend > startValue) continue;
+
+          const target = operation === 'add' ? startValue + addend : startValue - addend;
+          if (target < 0) continue;
+
           const analysis = analyzeCarryPattern(startValue, addend);
           if (analysis.columnsAffected !== 2 || !analysis.hasHeavenFlip || !analysis.hasCarry) {
             continue;
@@ -147,20 +192,30 @@ function generateProblem(belt: BeltLevel): DrillProblem {
         break;
 
       case 4: // Blue - Three column cascades
-        // Examples: 192 + 9, 3947 + 60
+        // Examples: 192 + 9, 3947 + 60, 503 - 48
         {
           startValue = Math.floor(Math.random() * 9000) + 100;
           addend = Math.floor(Math.random() * 90) + 1;
+
+          if (operation === 'subtract' && addend > startValue) continue;
+          const target = operation === 'add' ? startValue + addend : startValue - addend;
+          if (target < 0) continue;
+
           const analysis = analyzeCarryPattern(startValue, addend);
           if (analysis.columnsAffected < 3) continue;
         }
         break;
 
       case 5: // Purple - Complex multi-column
-        // Examples: 999 + 1, 4567 + 555
+        // Examples: 999 + 1, 4567 + 555, 8234 - 567
         {
           startValue = Math.floor(Math.random() * 9000) + 100;
           addend = Math.floor(Math.random() * 900) + 10;
+
+          if (operation === 'subtract' && addend > startValue) continue;
+          const target = operation === 'add' ? startValue + addend : startValue - addend;
+          if (target < 0) continue;
+
           const analysis = analyzeCarryPattern(startValue, addend);
           if (analysis.columnsAffected < 3 || !analysis.hasCarry) continue;
         }
@@ -179,8 +234,8 @@ function generateProblem(belt: BeltLevel): DrillProblem {
     }
 
     // Validate the problem
-    const target = startValue + addend;
-    if (target > 999999) continue; // Too big
+    const target = operation === 'add' ? startValue + addend : startValue - addend;
+    if (target > 999999 || target < 0) continue; // Too big or negative
     if (addend < 1) continue; // Invalid
 
     // Calculate rod count needed
@@ -190,11 +245,11 @@ function generateProblem(belt: BeltLevel): DrillProblem {
       2 // Minimum 2 rods
     );
 
-    return { startValue, addend, targetValue: target, rodCount };
+    return { startValue, addend, targetValue: target, rodCount, operation };
   }
 
   // Fallback simple problem
-  return { startValue: 23, addend: 4, targetValue: 27, rodCount: 2 };
+  return { startValue: 23, addend: 4, targetValue: 27, rodCount: 2, operation: 'add' };
 }
 
 // Game state
@@ -379,7 +434,7 @@ export function SorobanDrill({ onBack }: SorobanDrillProps) {
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 300, damping: 20 }}
       >
-        + {problem.addend}
+        {problem.operation === 'add' ? '+' : '−'} {problem.addend}
       </motion.div>
 
       {/* Soroban */}
