@@ -670,22 +670,18 @@ function SymbolicMultiplicationModel({ onBack, level }: {
         Problem {problemNumber} / 10
       </div>
 
-      <h2 style={{ color: '#2D1810', fontSize: 28, marginTop: 20 }}>
-        Symbolic Model
-      </h2>
-
       {/* Multiplication display - single row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 60 }}>
         {/* Multiplicand with selectable digits */}
-        <div style={{ display: 'flex', gap: 4, fontSize: 48, fontWeight: 'bold', fontFamily: 'monospace' }}>
+        <div style={{ display: 'flex', gap: 3, fontSize: 36, fontWeight: 'bold', fontFamily: 'monospace' }}>
           {multiplicand.split('').map((digit, idx) => (
             <motion.div
               key={`m1-${idx}`}
               onClick={() => setSelectedMultiplicandIndex(idx)}
               style={{
-                padding: '8px 16px',
-                borderRadius: 12,
-                border: selectedMultiplicandIndex === idx ? '4px solid #9C27B0' : '2px solid #D4C4A8',
+                padding: '6px 12px',
+                borderRadius: 10,
+                border: selectedMultiplicandIndex === idx ? '3px solid #9C27B0' : '2px solid #D4C4A8',
                 background: selectedMultiplicandIndex === idx ? '#F3E5F5' : '#FFF8E7',
                 color: '#2D1810',
                 cursor: 'pointer',
@@ -700,18 +696,18 @@ function SymbolicMultiplicationModel({ onBack, level }: {
         </div>
 
         {/* Multiplication symbol */}
-        <div style={{ fontSize: 36, color: '#2D1810', fontWeight: 'bold' }}>×</div>
+        <div style={{ fontSize: 28, color: '#2D1810', fontWeight: 'bold' }}>×</div>
 
         {/* Multiplier with selectable digits */}
-        <div style={{ display: 'flex', gap: 4, fontSize: 48, fontWeight: 'bold', fontFamily: 'monospace' }}>
+        <div style={{ display: 'flex', gap: 3, fontSize: 36, fontWeight: 'bold', fontFamily: 'monospace' }}>
           {multiplier.split('').map((digit, idx) => (
             <motion.div
               key={`m2-${idx}`}
               onClick={() => setSelectedMultiplierIndex(idx)}
               style={{
-                padding: '8px 16px',
-                borderRadius: 12,
-                border: selectedMultiplierIndex === idx ? '4px solid #5DADE2' : '2px solid #D4C4A8',
+                padding: '6px 12px',
+                borderRadius: 10,
+                border: selectedMultiplierIndex === idx ? '3px solid #5DADE2' : '2px solid #D4C4A8',
                 background: selectedMultiplierIndex === idx ? '#E3F2FD' : '#FFF8E7',
                 color: '#2D1810',
                 cursor: 'pointer',
@@ -726,11 +722,11 @@ function SymbolicMultiplicationModel({ onBack, level }: {
         </div>
       </div>
 
-      {/* 8-digit partial product display - wider spacing to match soroban rods */}
+      {/* Partial product display - spacing matches mobile rod width (60px) */}
       <div style={{
         display: 'flex',
-        gap: 16,
-        marginTop: 48,
+        gap: 0,
+        marginTop: 40,
       }}>
         {partialProductDisplay.split('').map((digit, displayIndex) => {
           // Convert display index to rod index: rod = rodCount - 1 - displayIndex
@@ -741,14 +737,14 @@ function SymbolicMultiplicationModel({ onBack, level }: {
               key={`digit-${displayIndex}`}
               style={{
                 width: 60,
-                height: 70,
+                height: 60,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 36,
+                fontSize: 28,
                 fontWeight: 'bold',
                 fontFamily: 'monospace',
-                borderRadius: 8,
+                borderRadius: 6,
                 border: isHighlighted ? '3px solid #FFD700' : '2px solid transparent',
                 background: isHighlighted ? '#FFF9C4' : 'transparent',
                 color: digit === '0' ? '#BDBDBD' : '#2D1810',
@@ -762,7 +758,7 @@ function SymbolicMultiplicationModel({ onBack, level }: {
       </div>
 
       {/* Soroban */}
-      <div style={{ marginTop: 24 }}>
+      <div style={{ marginTop: 12 }}>
         <Soroban
           rodCount={level.rodCount}
           size="mobile"
