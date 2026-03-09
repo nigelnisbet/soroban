@@ -16,11 +16,13 @@ type Screen = 'courseMap' | 'level';
 function AppMobile() {
   const [screen, setScreen] = useState<Screen>('courseMap');
   const [selectedLevel, setSelectedLevel] = useState<CourseLevel | null>(null);
+  const [savedScrollPosition, setSavedScrollPosition] = useState<number>(0);
 
   const { recordLevelAttempt } = useCourseProgressStore();
   const { recordLevelCompletion } = useProgressStore();
 
-  const handleSelectLevel = useCallback((level: CourseLevel) => {
+  const handleSelectLevel = useCallback((level: CourseLevel, scrollPosition: number) => {
+    setSavedScrollPosition(scrollPosition);
     setSelectedLevel(level);
     setScreen('level');
   }, []);
@@ -149,7 +151,10 @@ function AppMobile() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          <CourseMap onSelectLevel={handleSelectLevel} />
+          <CourseMap
+            onSelectLevel={handleSelectLevel}
+            initialScrollPosition={savedScrollPosition}
+          />
         </motion.div>
       )}
 

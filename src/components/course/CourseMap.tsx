@@ -1,9 +1,11 @@
+import { useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ALL_COURSE_LEVELS, CourseLevel } from '../../levels/courseLevels';
 import { useCourseProgressStore } from '../../store/courseProgressStore';
 
 interface CourseMapProps {
-  onSelectLevel: (level: CourseLevel) => void;
+  onSelectLevel: (level: CourseLevel, scrollPosition: number) => void;
+  initialScrollPosition?: number;
 }
 
 const TRACK_COLORS = {
@@ -14,8 +16,22 @@ const TRACK_COLORS = {
   multiplication: { bg: '#FFF3E0', border: '#FF9800', text: '#E65100' },
 };
 
-export function CourseMap({ onSelectLevel }: CourseMapProps) {
+export function CourseMap({ onSelectLevel, initialScrollPosition }: CourseMapProps) {
   const { getLevelProgress, totalXP, streak } = useCourseProgressStore();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Restore scroll position when component mounts
+  useEffect(() => {
+    if (scrollContainerRef.current && initialScrollPosition !== undefined) {
+      scrollContainerRef.current.scrollTop = initialScrollPosition;
+    }
+  }, [initialScrollPosition]);
+
+  // Handle level selection and capture scroll position
+  const handleSelectLevel = (level: CourseLevel) => {
+    const scrollPosition = scrollContainerRef.current?.scrollTop || 0;
+    onSelectLevel(level, scrollPosition);
+  };
 
   // Group levels by track
   const levelsByTrack = {
@@ -65,6 +81,7 @@ export function CourseMap({ onSelectLevel }: CourseMapProps) {
 
       {/* Scrollable content */}
       <div
+        ref={scrollContainerRef}
         style={{
           flex: 1,
           overflowY: 'auto',
@@ -112,7 +129,7 @@ export function CourseMap({ onSelectLevel }: CourseMapProps) {
                   return (
                     <motion.button
                       key={level.id}
-                      onClick={() => onSelectLevel(level)}
+                      onClick={() => handleSelectLevel(level)}
                       style={{
                         display: 'flex',
                         flexDirection: 'column',
