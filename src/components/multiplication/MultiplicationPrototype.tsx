@@ -627,6 +627,8 @@ function SymbolicMultiplicationModel({ onBack, level }: {
         alignItems: 'center',
         background: 'linear-gradient(135deg, #E8DCC8 0%, #D4C4A8 100%)',
         padding: 20,
+        paddingTop: 'max(20px, env(safe-area-inset-top))',
+        paddingBottom: 'max(20px, env(safe-area-inset-bottom))',
         gap: 24,
       }}
     >
@@ -635,7 +637,7 @@ function SymbolicMultiplicationModel({ onBack, level }: {
         onClick={onBack}
         style={{
           position: 'absolute',
-          top: 20,
+          top: 'max(20px, env(safe-area-inset-top))',
           left: 20,
           width: 48,
           height: 48,
@@ -658,7 +660,7 @@ function SymbolicMultiplicationModel({ onBack, level }: {
       {/* Progress indicator */}
       <div style={{
         position: 'absolute',
-        top: 20,
+        top: 'max(20px, env(safe-area-inset-top))',
         right: 20,
         padding: '8px 16px',
         background: '#FFF8E7',

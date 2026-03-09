@@ -348,7 +348,8 @@ export function SorobanDrill({ onBack }: SorobanDrillProps) {
         alignItems: 'center',
         background: `linear-gradient(135deg, ${currentBelt.color}22 0%, #E8DCC8 50%, ${currentBelt.color}22 100%)`,
         padding: 16,
-        paddingBottom: 20,
+        paddingTop: 'max(16px, env(safe-area-inset-top))',
+        paddingBottom: 'max(20px, env(safe-area-inset-bottom))',
       }}
     >
       {/* Header */}
@@ -359,6 +360,7 @@ export function SorobanDrill({ onBack }: SorobanDrillProps) {
         width: '100%',
         maxWidth: 400,
         marginBottom: 8,
+        marginTop: 8,
       }}>
         {/* Back button */}
         <motion.button
