@@ -10,14 +10,16 @@ import { LevelDefinition } from './models/types';
 import { calculateSessionStats } from './engine/LearningEngine';
 import './App.css';
 
-type Screen = 'home' | 'practice' | 'game' | 'multiplication' | 'drill';
+type Screen = 'home' | 'practice' | 'game' | 'multiplication' | 'multiplicationMenu' | 'drill';
 type LevelSet = 'demo' | 'full' | 'complements';
+type MultiplicationMode = 'area' | 'symbolic';
 
 function App() {
   const [screen, setScreen] = useState<Screen>('home');
   const [selectedLevel, setSelectedLevel] = useState<LevelDefinition | null>(null);
   const [practiceRodCount, setPracticeRodCount] = useState(1);
   const [levelSet, setLevelSet] = useState<LevelSet>('demo');
+  const [multiplicationMode, setMultiplicationMode] = useState<MultiplicationMode>('area');
 
   const { getLevelProgress, recordLevelCompletion } = useProgressStore();
 
@@ -313,7 +315,7 @@ function App() {
 
           {/* Multiplication prototype button */}
           <motion.button
-            onClick={() => setScreen('multiplication')}
+            onClick={() => setScreen('multiplicationMenu')}
             style={{
               padding: '16px 32px',
               fontSize: 18,
@@ -458,6 +460,144 @@ function App() {
         </motion.div>
       )}
 
+      {screen === 'multiplicationMenu' && (
+        <motion.div
+          key="multiplicationMenu"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{
+            minHeight: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            background: 'linear-gradient(135deg, #E8DCC8 0%, #D4C4A8 100%)',
+            padding: 20,
+            gap: 24,
+          }}
+        >
+          {/* Back button */}
+          <motion.button
+            onClick={() => setScreen('home')}
+            style={{
+              position: 'absolute',
+              top: 20,
+              left: 20,
+              width: 48,
+              height: 48,
+              borderRadius: '50%',
+              border: 'none',
+              background: '#FFF8E7',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 24,
+            }}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            ←
+          </motion.button>
+
+          <h1
+            style={{
+              fontSize: 40,
+              color: '#2D1810',
+              fontFamily: '"Segoe UI", system-ui, sans-serif',
+              margin: 0,
+              marginTop: 40,
+              textShadow: '0 2px 4px rgba(0,0,0,0.1)',
+            }}
+          >
+            Multiplication Lab
+          </h1>
+
+          <p
+            style={{
+              color: '#5D4632',
+              fontSize: 16,
+              textAlign: 'center',
+              maxWidth: 400,
+              margin: 0,
+            }}
+          >
+            Choose a multiplication learning mode
+          </p>
+
+          {/* Mode selection buttons */}
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 16,
+              width: '100%',
+              maxWidth: 400,
+              marginTop: 20,
+            }}
+          >
+            <motion.button
+              onClick={() => {
+                setMultiplicationMode('area');
+                setScreen('multiplication');
+              }}
+              style={{
+                padding: '20px 24px',
+                fontSize: 18,
+                fontWeight: 600,
+                color: 'white',
+                background: 'linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%)',
+                border: 'none',
+                borderRadius: 12,
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(156, 39, 176, 0.3)',
+                textAlign: 'left',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+              }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <div>Area Model</div>
+              <div style={{ fontSize: 14, opacity: 0.9, fontWeight: 400 }}>
+                Visual grid showing place value multiplication
+              </div>
+            </motion.button>
+
+            <motion.button
+              onClick={() => {
+                setMultiplicationMode('symbolic');
+                setScreen('multiplication');
+              }}
+              style={{
+                padding: '20px 24px',
+                fontSize: 18,
+                fontWeight: 600,
+                color: 'white',
+                background: 'linear-gradient(135deg, #5DADE2 0%, #3498DB 100%)',
+                border: 'none',
+                borderRadius: 12,
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(52, 152, 219, 0.3)',
+                textAlign: 'left',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+              }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <div>Symbolic Model</div>
+              <div style={{ fontSize: 14, opacity: 0.9, fontWeight: 400 }}>
+                Practice with numbers and soroban addition
+              </div>
+            </motion.button>
+          </div>
+        </motion.div>
+      )}
+
       {screen === 'multiplication' && (
         <motion.div
           key="multiplication"
@@ -466,7 +606,10 @@ function App() {
           exit={{ opacity: 0 }}
           style={{ width: '100%', minHeight: '100vh' }}
         >
-          <MultiplicationPrototype onBack={() => setScreen('home')} />
+          <MultiplicationPrototype
+            onBack={() => setScreen('multiplicationMenu')}
+            mode={multiplicationMode}
+          />
         </motion.div>
       )}
 
