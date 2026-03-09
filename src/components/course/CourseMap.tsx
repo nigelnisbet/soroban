@@ -30,26 +30,24 @@ export function CourseMap({ onSelectLevel }: CourseMapProps) {
     <div
       style={{
         minHeight: '100vh',
+        height: '100vh',
         background: 'linear-gradient(135deg, #E8DCC8 0%, #D4C4A8 100%)',
-        padding: 20,
-        paddingTop: 60,
-        overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
       }}
     >
-      {/* Header with stats */}
+      {/* Header with stats - positioned below status bar */}
       <div
         style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
           background: 'linear-gradient(180deg, #8B7355 0%, #6B5344 100%)',
           padding: '12px 20px',
+          paddingTop: 'max(12px, env(safe-area-inset-top))',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-          zIndex: 100,
+          flexShrink: 0,
         }}
       >
         <div style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>
@@ -65,8 +63,18 @@ export function CourseMap({ onSelectLevel }: CourseMapProps) {
         </div>
       </div>
 
+      {/* Scrollable content */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: 20,
+          paddingBottom: 'max(20px, env(safe-area-inset-bottom))',
+        }}
+      >
+
       {/* Level tracks */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 32, marginTop: 20 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
         {Object.entries(levelsByTrack).map(([track, levels]) => {
           const trackKey = track as keyof typeof TRACK_COLORS;
           const colors = TRACK_COLORS[trackKey];
@@ -208,6 +216,7 @@ export function CourseMap({ onSelectLevel }: CourseMapProps) {
             </div>
           );
         })}
+      </div>
       </div>
     </div>
   );
