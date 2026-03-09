@@ -42,7 +42,7 @@ export function CourseMap({ onSelectLevel }: CourseMapProps) {
         style={{
           background: 'linear-gradient(180deg, #8B7355 0%, #6B5344 100%)',
           padding: '12px 20px',
-          paddingTop: 'max(12px, env(safe-area-inset-top))',
+          paddingTop: 'calc(env(safe-area-inset-top) + 12px)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',

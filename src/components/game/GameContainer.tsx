@@ -720,8 +720,8 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
         flexDirection: 'column',
         background: 'linear-gradient(135deg, #E8DCC8 0%, #D4C4A8 100%)',
         padding: responsiveSizeConfig.isCompact ? 12 : 20,
-        paddingTop: `max(${responsiveSizeConfig.isCompact ? 8 : 20}px, env(safe-area-inset-top))`,
-        paddingBottom: `max(${responsiveSizeConfig.isCompact ? 8 : 20}px, env(safe-area-inset-bottom))`,
+        paddingTop: `calc(env(safe-area-inset-top) + ${responsiveSizeConfig.isCompact ? 8 : 20}px)`,
+        paddingBottom: `calc(env(safe-area-inset-bottom) + ${responsiveSizeConfig.isCompact ? 8 : 20}px)`,
       }}
     >
       {/* Header */}
