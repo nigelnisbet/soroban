@@ -348,7 +348,7 @@ export function SorobanDrill({ onBack }: SorobanDrillProps) {
         alignItems: 'center',
         background: `linear-gradient(135deg, ${currentBelt.color}22 0%, #E8DCC8 50%, ${currentBelt.color}22 100%)`,
         padding: 16,
-        paddingTop: 'calc(env(safe-area-inset-top) + 16px)',
+        paddingTop: 'calc(env(safe-area-inset-top) + 50px)',
         paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)',
       }}
     >
