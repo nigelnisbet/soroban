@@ -9,7 +9,7 @@ interface SorobanRodProps {
   highlighted?: boolean;
   /** Strong glow highlight for multi-rod selection */
   glowHighlight?: boolean;
-  size: 'small' | 'medium' | 'large';
+  size: 'small' | 'medium' | 'large' | 'mobile';
   /** Custom size config (overrides size preset if provided) */
   sizeConfig?: SizeConfig;
 }

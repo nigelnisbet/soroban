@@ -765,7 +765,7 @@ function SymbolicMultiplicationModel({ onBack, level }: {
       <div style={{ marginTop: 24 }}>
         <Soroban
           rodCount={level.rodCount}
-          size="large"
+          size="mobile"
           showValue={true}
           highlightRods={highlightedRods}
           initialValue={sorobanValue}
@@ -1434,7 +1434,7 @@ export function MultiplicationPrototype({ onBack, mode, initialLevel }: Multipli
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
         <Soroban
           rodCount={answerRodCount}
-          size="medium"
+          size="mobile"
           showValue={false}
           onValueChange={setAnswerValue}
           highlightRods={selectedCell ? [selectedCell.startRod, selectedCell.startRod + 1] : undefined}

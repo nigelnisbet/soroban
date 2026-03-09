@@ -892,7 +892,7 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
                 disabled={gameState !== 'AWAITING_INPUT' || showFormativeFeedback}
                 highlightRod={getHighlightRod()}
                 showValue={false}
-                size="large"
+                size="mobile"
                 sizeConfig={responsiveSizeConfig}
               />
             </div>
@@ -937,7 +937,7 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
                   initialValue={displayProblem.targetValue}
                   disabled={true}
                   showValue={false}
-                  size="large"
+                  size="mobile"
                   sizeConfig={responsiveSizeConfig}
                 />
               </div>
@@ -993,7 +993,7 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
                   (additionPhase !== 'ENTERING_FIRST' && additionPhase !== 'ENTERING_SUM')
                 }
                 showValue={false}
-                size="large"
+                size="mobile"
                 sizeConfig={responsiveSizeConfig}
               />
             </div>
@@ -1037,7 +1037,7 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
                   initialValue={displayProblem.targetValue}
                   disabled={true} // Read-only in this mode
                   showValue={false}
-                  size="large"
+                  size="mobile"
                   sizeConfig={responsiveSizeConfig}
                 />
               </div>
@@ -1082,7 +1082,7 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
                 disabled={gameState !== 'AWAITING_INPUT' || showFormativeFeedback}
                 highlightRod={getHighlightRod()}
                 showValue={false} // Hide value during visual learning phase - symbolic matching comes later
-                size="large"
+                size="mobile"
                 sizeConfig={responsiveSizeConfig}
               />
             </div>

@@ -389,7 +389,7 @@ export function SorobanDrill({ onBack }: SorobanDrillProps) {
           initialValue={animatingValue ?? problem.startValue}
           onValueChange={animatingValue === null ? setSorobanValue : undefined}
           disabled={phase === 'showAnswer'}
-          size="large"
+          size="mobile"
           showValue={false}
         />
 

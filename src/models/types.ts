@@ -37,7 +37,7 @@ export interface SorobanProps {
   /** Highlight multiple rods with a glow effect */
   highlightRods?: number[];
   showValue?: boolean;
-  size?: 'small' | 'medium' | 'large';
+  size?: 'small' | 'medium' | 'large' | 'mobile';
   /** Custom size config (overrides size preset if provided) */
   sizeConfig?: SizeConfig;
 }
@@ -166,7 +166,7 @@ export interface SorobanRodProps {
   onStateChange: (newState: RodState) => void;
   disabled?: boolean;
   highlighted?: boolean;
-  size: 'small' | 'medium' | 'large';
+  size: 'small' | 'medium' | 'large' | 'mobile';
 }
 
 // Size configurations
@@ -188,6 +188,12 @@ export const SIZES = {
     beadSpacing: 12,
     rodWidth: 96,
     framepadding: 24,
+  },
+  mobile: {
+    beadSize: 44,
+    beadSpacing: 8,
+    rodWidth: 60,
+    framepadding: 16,
   },
 } as const;
 
