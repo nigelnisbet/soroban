@@ -883,7 +883,7 @@ export function MultiplicationPrototype({ onBack, mode, initialLevel }: Multipli
     }
     return (
       <SymbolicMultiplicationModel
-        onBack={() => setSelectedLevel(null)}
+        onBack={onBack}
         level={selectedLevel}
       />
     );

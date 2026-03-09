@@ -786,59 +786,10 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
             color: '#5D4632',
             fontWeight: 'bold',
             fontSize: responsiveSizeConfig.isCompact ? 14 : 18,
-            marginRight: responsiveSizeConfig.isCompact ? 8 : 16,
           }}
         >
           {problemIndex + 1}/{sessionProblems.length}
         </span>
-
-        {/* ST Math style Go button - chevron arrow */}
-        <motion.button
-          onClick={(e) => {
-            e.stopPropagation();
-            handleCheck();
-          }}
-          disabled={gameState !== 'AWAITING_INPUT'}
-          style={{
-            width: responsiveSizeConfig.isCompact ? 48 : 64,
-            height: responsiveSizeConfig.isCompact ? 48 : 64,
-            border: 'none',
-            borderRadius: responsiveSizeConfig.isCompact ? 10 : 12,
-            cursor: gameState === 'AWAITING_INPUT' ? 'pointer' : 'default',
-            background: gameState === 'AWAITING_INPUT'
-              ? 'linear-gradient(180deg, #4CAF50 0%, #388E3C 100%)'
-              : '#BDBDBD',
-            boxShadow: gameState === 'AWAITING_INPUT'
-              ? '0 4px 12px rgba(76, 175, 80, 0.4), inset 0 2px 0 rgba(255,255,255,0.2)'
-              : '0 2px 4px rgba(0,0,0,0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            position: 'relative',
-            overflow: 'hidden',
-          }}
-          whileHover={gameState === 'AWAITING_INPUT' ? { scale: 1.08, boxShadow: '0 6px 20px rgba(76, 175, 80, 0.5)' } : {}}
-          whileTap={gameState === 'AWAITING_INPUT' ? { scale: 0.95 } : {}}
-        >
-          {/* Chevron arrow icon */}
-          <svg
-            width={responsiveSizeConfig.isCompact ? 24 : 32}
-            height={responsiveSizeConfig.isCompact ? 24 : 32}
-            viewBox="0 0 24 24"
-            fill="none"
-            style={{
-              filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))',
-            }}
-          >
-            <path
-              d="M9 6l6 6-6 6"
-              stroke="white"
-              strokeWidth="3.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </motion.button>
       </div>
 
       {/* Main game area - click anywhere to flash the interactive element */}
@@ -896,6 +847,52 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
                 sizeConfig={responsiveSizeConfig}
               />
             </div>
+
+            {/* Go button */}
+            <motion.button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCheck();
+              }}
+              disabled={gameState !== 'AWAITING_INPUT'}
+              style={{
+                width: 64,
+                height: 64,
+                border: 'none',
+                borderRadius: 12,
+                cursor: gameState === 'AWAITING_INPUT' ? 'pointer' : 'default',
+                background: gameState === 'AWAITING_INPUT'
+                  ? 'linear-gradient(180deg, #4CAF50 0%, #388E3C 100%)'
+                  : '#BDBDBD',
+                boxShadow: gameState === 'AWAITING_INPUT'
+                  ? '0 4px 12px rgba(76, 175, 80, 0.4), inset 0 2px 0 rgba(255,255,255,0.2)'
+                  : '0 2px 4px rgba(0,0,0,0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: 16,
+              }}
+              whileHover={gameState === 'AWAITING_INPUT' ? { scale: 1.08, boxShadow: '0 6px 20px rgba(76, 175, 80, 0.5)' } : {}}
+              whileTap={gameState === 'AWAITING_INPUT' ? { scale: 0.95 } : {}}
+            >
+              <svg
+                width={32}
+                height={32}
+                viewBox="0 0 24 24"
+                fill="none"
+                style={{
+                  filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))',
+                }}
+              >
+                <path
+                  d="M9 6l6 6-6 6"
+                  stroke="white"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </motion.button>
           </>
         ) : level.displayMode === 'symbolicInput' ? (
           // SYMBOLIC INPUT MODE: User inputs digits on top, read-only soroban below
@@ -942,6 +939,52 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
                 />
               </div>
             )}
+
+            {/* Go button */}
+            <motion.button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCheck();
+              }}
+              disabled={gameState !== 'AWAITING_INPUT'}
+              style={{
+                width: 64,
+                height: 64,
+                border: 'none',
+                borderRadius: 12,
+                cursor: gameState === 'AWAITING_INPUT' ? 'pointer' : 'default',
+                background: gameState === 'AWAITING_INPUT'
+                  ? 'linear-gradient(180deg, #4CAF50 0%, #388E3C 100%)'
+                  : '#BDBDBD',
+                boxShadow: gameState === 'AWAITING_INPUT'
+                  ? '0 4px 12px rgba(76, 175, 80, 0.4), inset 0 2px 0 rgba(255,255,255,0.2)'
+                  : '0 2px 4px rgba(0,0,0,0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: 16,
+              }}
+              whileHover={gameState === 'AWAITING_INPUT' ? { scale: 1.08, boxShadow: '0 6px 20px rgba(76, 175, 80, 0.5)' } : {}}
+              whileTap={gameState === 'AWAITING_INPUT' ? { scale: 0.95 } : {}}
+            >
+              <svg
+                width={32}
+                height={32}
+                viewBox="0 0 24 24"
+                fill="none"
+                style={{
+                  filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))',
+                }}
+              >
+                <path
+                  d="M9 6l6 6-6 6"
+                  stroke="white"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </motion.button>
           </>
         ) : (level.displayMode === 'addition' || level.displayMode === 'rollingAddition') ? (
           // ADDITION MODE: Multi-step addition problem (also handles rolling addition)
@@ -997,6 +1040,52 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
                 sizeConfig={responsiveSizeConfig}
               />
             </div>
+
+            {/* Go button */}
+            <motion.button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCheck();
+              }}
+              disabled={gameState !== 'AWAITING_INPUT'}
+              style={{
+                width: 64,
+                height: 64,
+                border: 'none',
+                borderRadius: 12,
+                cursor: gameState === 'AWAITING_INPUT' ? 'pointer' : 'default',
+                background: gameState === 'AWAITING_INPUT'
+                  ? 'linear-gradient(180deg, #4CAF50 0%, #388E3C 100%)'
+                  : '#BDBDBD',
+                boxShadow: gameState === 'AWAITING_INPUT'
+                  ? '0 4px 12px rgba(76, 175, 80, 0.4), inset 0 2px 0 rgba(255,255,255,0.2)'
+                  : '0 2px 4px rgba(0,0,0,0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: 16,
+              }}
+              whileHover={gameState === 'AWAITING_INPUT' ? { scale: 1.08, boxShadow: '0 6px 20px rgba(76, 175, 80, 0.5)' } : {}}
+              whileTap={gameState === 'AWAITING_INPUT' ? { scale: 0.95 } : {}}
+            >
+              <svg
+                width={32}
+                height={32}
+                viewBox="0 0 24 24"
+                fill="none"
+                style={{
+                  filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))',
+                }}
+              >
+                <path
+                  d="M9 6l6 6-6 6"
+                  stroke="white"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </motion.button>
           </>
         ) : level.displayMode === 'tenFrameInput' ? (
           // REVERSE MODE: Interactive ten frames on top, read-only soroban below
@@ -1042,6 +1131,52 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
                 />
               </div>
             )}
+
+            {/* Go button */}
+            <motion.button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCheck();
+              }}
+              disabled={gameState !== 'AWAITING_INPUT'}
+              style={{
+                width: 64,
+                height: 64,
+                border: 'none',
+                borderRadius: 12,
+                cursor: gameState === 'AWAITING_INPUT' ? 'pointer' : 'default',
+                background: gameState === 'AWAITING_INPUT'
+                  ? 'linear-gradient(180deg, #4CAF50 0%, #388E3C 100%)'
+                  : '#BDBDBD',
+                boxShadow: gameState === 'AWAITING_INPUT'
+                  ? '0 4px 12px rgba(76, 175, 80, 0.4), inset 0 2px 0 rgba(255,255,255,0.2)'
+                  : '0 2px 4px rgba(0,0,0,0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: 16,
+              }}
+              whileHover={gameState === 'AWAITING_INPUT' ? { scale: 1.08, boxShadow: '0 6px 20px rgba(76, 175, 80, 0.5)' } : {}}
+              whileTap={gameState === 'AWAITING_INPUT' ? { scale: 0.95 } : {}}
+            >
+              <svg
+                width={32}
+                height={32}
+                viewBox="0 0 24 24"
+                fill="none"
+                style={{
+                  filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))',
+                }}
+              >
+                <path
+                  d="M9 6l6 6-6 6"
+                  stroke="white"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </motion.button>
           </>
         ) : (
           // NORMAL MODE: Problem display on top, interactive soroban below
