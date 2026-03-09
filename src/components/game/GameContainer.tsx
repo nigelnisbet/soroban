@@ -737,8 +737,8 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
         <motion.button
           onClick={onExit}
           style={{
-            width: responsiveSizeConfig.isCompact ? 40 : 48,
-            height: responsiveSizeConfig.isCompact ? 40 : 48,
+            width: 48,
+            height: 48,
             borderRadius: '50%',
             border: 'none',
             background: '#FFF8E7',
@@ -747,12 +747,12 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: responsiveSizeConfig.isCompact ? 20 : 24,
+            fontSize: 24,
           }}
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
         >
-          ×
+          ←
         </motion.button>
 
         {/* Progress bar - centered */}

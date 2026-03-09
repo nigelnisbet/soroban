@@ -366,17 +366,17 @@ export function SorobanDrill({ onBack }: SorobanDrillProps) {
         <motion.button
           onClick={onBack}
           style={{
-            width: 36,
-            height: 36,
+            width: 48,
+            height: 48,
             borderRadius: '50%',
             border: 'none',
             background: '#FFF8E7',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: 18,
+            fontSize: 24,
           }}
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
