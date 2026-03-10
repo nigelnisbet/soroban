@@ -4,6 +4,7 @@ import { CourseMap } from './components/course/CourseMap';
 import { GameContainer } from './components/game/GameContainer';
 import { MultiplicationPrototype } from './components/multiplication/MultiplicationPrototype';
 import { SorobanDrill } from './components/drill/SorobanDrill';
+import { ObjectMatching } from './components/levels/ObjectMatching';
 import { ADULT_LEVEL_5_COMPETITION } from './levels/level1-counting';
 import { CourseLevel } from './levels/courseLevels';
 import { useCourseProgressStore } from './store/courseProgressStore';
@@ -69,6 +70,15 @@ function AppMobile() {
     // For now, map to existing components based on level type
     // We'll build the new level types later
     switch (selectedLevel.type) {
+      case 'object-matching':
+        return (
+          <ObjectMatching
+            level={selectedLevel}
+            onBack={handleExitToMap}
+            onComplete={handleLevelComplete}
+          />
+        );
+
       case 'speed-drill':
         return <SorobanDrill onBack={handleExitToMap} />;
 
