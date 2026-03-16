@@ -473,43 +473,25 @@ export function SorobanDrill({ onBack }: SorobanDrillProps) {
         </AnimatePresence>
       </div>
 
-      {/* Current value display and GO button together */}
+      {/* GO button - centered and larger */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 16,
-        marginTop: 12,
+        justifyContent: 'center',
+        marginTop: 20,
       }}>
-        <motion.div
-          style={{
-            fontSize: 32,
-            fontWeight: 'bold',
-            fontFamily: '"Segoe UI", system-ui, sans-serif',
-            color: phase === 'correct' ? '#4CAF50' : phase === 'incorrect' ? '#F44336' : '#2D1810',
-            minWidth: 80,
-            textAlign: 'center',
-          }}
-          animate={{
-            scale: phase === 'correct' ? [1, 1.2, 1] : phase === 'incorrect' ? [1, 0.9, 1, 0.9, 1] : 1,
-          }}
-          transition={{ duration: 0.3 }}
-        >
-          {animatingValue ?? sorobanValue}
-        </motion.div>
-
-        {/* GO button - inline */}
         {(phase === 'playing' || phase === 'ready') && (
           <motion.button
             onClick={handleCommit}
             style={{
-              width: 100,
-              height: 50,
-              fontSize: 20,
+              width: 140,
+              height: 70,
+              fontSize: 28,
               fontWeight: 'bold',
               color: 'white',
               background: 'linear-gradient(135deg, #4CAF50 0%, #388E3C 100%)',
               border: 'none',
-              borderRadius: 25,
+              borderRadius: 35,
               cursor: 'pointer',
               boxShadow: '0 4px 12px rgba(76, 175, 80, 0.4)',
             }}
