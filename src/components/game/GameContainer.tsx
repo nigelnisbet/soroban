@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Soroban } from '../soroban/Soroban';
 import { ProblemDisplay } from './ProblemDisplay';
 import { FeedbackOverlay } from './FeedbackOverlay';
-import { FormativeFeedback } from './FormativeFeedback';
+// import { FormativeFeedback } from './FormativeFeedback'; // TEMPORARILY DISABLED for mobile consolidation
 import { InteractiveTenFrameDisplay } from './InteractiveTenFrameDisplay';
 import { SymbolicDisplay } from './SymbolicDisplay';
 import { SymbolicFormativeFeedback } from './SymbolicFormativeFeedback';
@@ -15,7 +15,8 @@ import { LevelInstructionPopup, DEMO_LEVEL_INSTRUCTIONS } from './LevelInstructi
 import { useLearningEngine, calculateSessionStats } from '../../engine/LearningEngine';
 import { LevelDefinition, numberToRodStates, SizeConfig } from '../../models/types';
 import { generateProblemSequence, generateRollingAdditionProblem, generateComplementSequence } from '../../engine/ProblemGenerator';
-import { useResponsiveSize } from '../../hooks/useResponsiveSize';
+// import { useResponsiveSize } from '../../hooks/useResponsiveSize'; // TEMPORARILY DISABLED for mobile consolidation
+import { MobileGameLayout } from '../layout/MobileGameLayout';
 
 interface GameContainerProps {
   level: LevelDefinition;
@@ -126,8 +127,8 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
     return effectiveProblem;
   }, [showFormativeFeedback, showDirectFeedback, showSumForDirectFeedback, frozenProblem, effectiveProblem]);
 
-  // Responsive sizing for phone screens (uses effective rod count)
-  const responsiveSizeConfig = useResponsiveSize({ rodCount: effectiveRodCount });
+  // TEMPORARILY DISABLED: Responsive sizing for mobile consolidation
+  // const responsiveSizeConfig = useResponsiveSize({ rodCount: effectiveRodCount });
 
   // Initialize level on mount (generate problems for this level)
   // Use a ref tied to the level.id to handle both Strict Mode and level changes
@@ -258,32 +259,24 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
         }, 350);
       } else if (level.displayMode === 'addition' || level.displayMode === 'rollingAddition') {
         // Addition mode - handle based on current phase
+        // ANIMATIONS TEMPORARILY DISABLED - Direct feedback flow
         const activeProblem = effectiveProblem;
-        const activeRodCount = effectiveRodCount;
 
         if (additionPhase === 'ENTERING_FIRST') {
           // Check if first number is correct
           const isFirstCorrect = currentValue === activeProblem?.operand1;
 
           if (isFirstCorrect) {
-            // Correct! Skip verification animation, go straight to showing second number
+            // Correct! Go straight to showing second number
             setAdditionPhase('SHOWING_SECOND');
             setTimeout(() => {
               setAdditionPhase('ENTERING_SUM');
             }, 800);
-            return; // Don't set showFormativeFeedback
+            return;
           } else {
-            // Wrong - show verification animation to reveal the error
-            setAdditionPhase('VERIFYING_FIRST');
-            setAdditionFirstCounterValues(Array(activeRodCount).fill(0));
-            setAdditionShowFirstCounters(true);
-            setAdditionFirstDigitVerificationState(new Map());
-            // Delay capturing soroban rect until after counter row animation completes (300ms) and layout has settled
-            setTimeout(() => {
-              if (sorobanRef.current) {
-                setSorobanRect(sorobanRef.current.getBoundingClientRect());
-              }
-            }, 350);
+            // Wrong - call completion handler directly without animation
+            handleAdditionFirstComplete(false);
+            return;
           }
         } else if (additionPhase === 'ENTERING_SUM') {
           // Check if sum is correct
@@ -291,39 +284,26 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
           const isSumCorrect = currentValue === expectedSum;
 
           if (isSumCorrect) {
-            // Correct! Show sum row first, then start direct feedback once positions are captured
-            setAdditionFlashingDigits(new Set());
-            setShowSumForDirectFeedback(true);
-            // Freeze the problem to prevent flash during transition
-            setFrozenProblem(effectiveProblem);
-            // Wait for sum row to render and report positions
-            setTimeout(() => {
-              if (sorobanRef.current) {
-                setSorobanRect(sorobanRef.current.getBoundingClientRect());
-              }
-              setShowDirectFeedback(true);
-            }, 100);
-            return; // Don't set showFormativeFeedback
+            // Correct! Call completion handler directly without animation
+            handleDirectFeedbackComplete();
+            return;
           } else {
-            // Wrong - show full verification with counter row
-            setAdditionPhase('VERIFYING_SUM');
-            setAdditionSumCounterValues(Array(activeRodCount).fill(0));
-            setAdditionShowSumCounters(true);
-            setAdditionSumDigitVerificationState(new Map());
-            // Wait for counter row animation (300ms) to complete before capturing position
-            setTimeout(() => {
-              if (sorobanRef.current) {
-                setSorobanRect(sorobanRef.current.getBoundingClientRect());
-              }
-            }, 350);
+            // Wrong - call completion handler directly without animation
+            handleAdditionSumComplete(false);
+            return;
           }
         } else {
           // Not in an input phase, ignore
           return;
         }
       } else if (sorobanRef.current && problemDisplayRef.current) {
-        setSorobanRect(sorobanRef.current.getBoundingClientRect());
-        setProblemDisplayRect(problemDisplayRef.current.getBoundingClientRect());
+        // Wait for layout to settle before capturing positions (fixes animation positioning bug)
+        setTimeout(() => {
+          if (sorobanRef.current && problemDisplayRef.current) {
+            setSorobanRect(sorobanRef.current.getBoundingClientRect());
+            setProblemDisplayRect(problemDisplayRef.current.getBoundingClientRect());
+          }
+        }, 50);
       }
 
       // Freeze the current problem to prevent display flash during transition
@@ -712,86 +692,183 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
     return 0;
   };
 
-  return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        background: 'linear-gradient(135deg, #E8DCC8 0%, #D4C4A8 100%)',
-        padding: responsiveSizeConfig.isCompact ? 12 : 20,
-        paddingTop: `calc(env(safe-area-inset-top) + 50px)`,
-        paddingBottom: `calc(env(safe-area-inset-bottom) + ${responsiveSizeConfig.isCompact ? 8 : 20}px)`,
-      }}
-    >
-      {/* Header */}
+  // Custom progress component for header
+  const progressComponent = (
+    <>
+      {/* Progress bar - centered */}
       <div
         style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: responsiveSizeConfig.isCompact ? 8 : 16,
+          flex: 1,
+          maxWidth: 200,
+          height: 12,
+          background: '#D4C4A8',
+          borderRadius: 6,
+          overflow: 'hidden',
+          marginLeft: 16,
+          marginRight: 16,
         }}
       >
-        {/* Exit button */}
-        <motion.button
-          onClick={onExit}
+        <motion.div
           style={{
-            width: 48,
-            height: 48,
-            borderRadius: '50%',
-            border: 'none',
-            background: '#FFF8E7',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 24,
-          }}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          ←
-        </motion.button>
-
-        {/* Progress bar - centered */}
-        <div
-          style={{
-            flex: 1,
-            maxWidth: 200,
-            height: responsiveSizeConfig.isCompact ? 8 : 12,
-            background: '#D4C4A8',
+            height: '100%',
+            background: 'linear-gradient(90deg, #4CAF50, #8BC34A)',
             borderRadius: 6,
-            overflow: 'hidden',
-            marginLeft: responsiveSizeConfig.isCompact ? 8 : 16,
-            marginRight: responsiveSizeConfig.isCompact ? 8 : 16,
           }}
-        >
-          <motion.div
-            style={{
-              height: '100%',
-              background: 'linear-gradient(90deg, #4CAF50, #8BC34A)',
-              borderRadius: 6,
-            }}
-            initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.5 }}
-          />
-        </div>
-
-        {/* Problem counter */}
-        <span
-          style={{
-            color: '#5D4632',
-            fontWeight: 'bold',
-            fontSize: responsiveSizeConfig.isCompact ? 14 : 18,
-          }}
-        >
-          {problemIndex + 1}/{sessionProblems.length}
-        </span>
+          initial={{ width: 0 }}
+          animate={{ width: `${progress}%` }}
+          transition={{ duration: 0.5 }}
+        />
       </div>
 
+      {/* Problem counter */}
+      <span
+        style={{
+          color: '#5D4632',
+          fontWeight: 'bold',
+          fontSize: 18,
+        }}
+      >
+        {problemIndex + 1}/{sessionProblems.length}
+      </span>
+    </>
+  );
+
+  // Soroban component - different for each display mode
+  const sorobanComponent = (() => {
+    if (level.displayMode === 'symbolic' || level.displayMode === 'symbolicAdvanced') {
+      return (
+        <div
+          ref={sorobanRef}
+          style={{
+            width: 'fit-content',
+            opacity: showFormativeFeedback ? 0.25 : 1,
+            transition: 'opacity 0.3s ease',
+            animation: flashActiveElement ? 'flash-highlight 0.3s ease-in-out' : 'none',
+          }}
+        >
+          <Soroban
+            key={`${currentProblem?.id || 'initial'}-${sorobanResetKey}`}
+            rodCount={level.rodCount}
+            initialValue={0}
+            onValueChange={handleValueChange}
+            disabled={gameState !== 'AWAITING_INPUT' || showFormativeFeedback}
+            highlightRod={getHighlightRod()}
+            showValue={true}
+            size="mobile"
+          />
+        </div>
+      );
+    } else if (level.displayMode === 'symbolicInput') {
+      return (
+        <div
+          ref={sorobanRef}
+          style={{
+            width: 'fit-content',
+            opacity: showFormativeFeedback ? 0.25 : 1,
+            transition: 'opacity 0.3s ease',
+          }}
+        >
+          <Soroban
+            key={`${currentProblem?.id || 'initial'}-${sorobanResetKey}`}
+            rodCount={level.rodCount}
+            initialValue={displayProblem?.targetValue || 0}
+            onValueChange={() => {}}
+            disabled={true}
+            showValue={false}
+            size="mobile"
+          />
+        </div>
+      );
+    } else if (level.displayMode === 'addition' || level.displayMode === 'rollingAddition') {
+      return (
+        <div
+          ref={sorobanRef}
+          style={{
+            width: 'fit-content',
+            opacity: (showFormativeFeedback || showDirectFeedback) ? 0.25 : 1,
+            transition: 'opacity 0.3s ease',
+            animation: flashActiveElement ? 'flash-highlight 0.3s ease-in-out' : 'none',
+          }}
+        >
+          <Soroban
+            key={`addition-${effectiveProblem?.id || 'initial'}-${sorobanResetKey}`}
+            rodCount={effectiveRodCount}
+            initialValue={additionSorobanInitialValue}
+            onValueChange={handleValueChange}
+            disabled={
+              gameState !== 'AWAITING_INPUT' ||
+              showFormativeFeedback ||
+              showDirectFeedback ||
+              (additionPhase !== 'ENTERING_FIRST' && additionPhase !== 'ENTERING_SUM')
+            }
+            showValue={true}
+            size="mobile"
+          />
+        </div>
+      );
+    } else if (level.displayMode === 'tenFrameInput') {
+      // Only render when we have a valid problem with non-zero target to avoid showing 0
+      if (displayProblem && displayProblem.targetValue > 0) {
+        return (
+          <div
+            ref={sorobanRef}
+            style={{
+              width: 'fit-content',
+              opacity: showFormativeFeedback ? (hideFrames ? 0 : 0.25) : 1,
+              transition: 'opacity 0.3s ease',
+            }}
+          >
+            <Soroban
+              key={`soroban-${displayProblem.id}-${displayProblem.targetValue}`}
+              rodCount={level.rodCount}
+              initialValue={displayProblem.targetValue}
+              disabled={true}
+              showValue={false}
+              size="mobile"
+            />
+          </div>
+        );
+      }
+      return null;
+    } else {
+      // Default mode (objects, tenFrame)
+      return (
+        <div
+          ref={sorobanRef}
+          style={{
+            width: 'fit-content',
+            opacity: showFormativeFeedback ? (hideFrames ? 0 : 0.25) : 1,
+            transition: 'opacity 0.3s ease',
+            animation: flashActiveElement ? 'flash-highlight 0.3s ease-in-out' : 'none',
+          }}
+        >
+          <Soroban
+            key={`${currentProblem?.id || 'initial'}-${sorobanResetKey}`}
+            rodCount={level.rodCount}
+            initialValue={0}
+            onValueChange={handleValueChange}
+            disabled={gameState !== 'AWAITING_INPUT' || showFormativeFeedback}
+            highlightRod={getHighlightRod()}
+            showValue={true}
+            size="mobile"
+          />
+        </div>
+      );
+    }
+  })();
+
+  return (
+    <MobileGameLayout
+      onBack={onExit}
+      progress={progressComponent}
+      onGo={handleCheck}
+      onReset={() => {
+        // Force reset soroban to initial state
+        setSorobanResetKey(prev => prev + 1);
+      }}
+      goDisabled={gameState !== 'AWAITING_INPUT'}
+      soroban={sorobanComponent}
+    >
       {/* Main game area - click anywhere to flash the interactive element */}
       <div
         onClick={handleGameAreaClick}
@@ -800,11 +877,8 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: responsiveSizeConfig.isCompact ? 12 : 24,
-          justifyContent: 'center',
-          // Apply mobile scale to reduce cramping on phones
-          transform: responsiveSizeConfig.mobileScale < 1 ? `scale(${responsiveSizeConfig.mobileScale})` : undefined,
-          transformOrigin: 'top center',
+          justifyContent: 'flex-start',
+          width: '100%',
         }}
       >
         {(level.displayMode === 'symbolic' || level.displayMode === 'symbolicAdvanced') ? (
@@ -824,75 +898,6 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
                 />
               </div>
             )}
-
-            {/* Interactive soroban */}
-            <div
-              ref={sorobanRef}
-              style={{
-                width: 'fit-content',
-                opacity: showFormativeFeedback ? 0.25 : 1,
-                transition: 'opacity 0.3s ease',
-                animation: flashActiveElement ? 'flash-highlight 0.3s ease-in-out' : 'none',
-              }}
-            >
-              <Soroban
-                key={`${currentProblem?.id || 'initial'}-${sorobanResetKey}`}
-                rodCount={level.rodCount}
-                initialValue={0}
-                onValueChange={handleValueChange}
-                disabled={gameState !== 'AWAITING_INPUT' || showFormativeFeedback}
-                highlightRod={getHighlightRod()}
-                showValue={false}
-                size="mobile"
-                sizeConfig={responsiveSizeConfig}
-              />
-            </div>
-
-            {/* Go button */}
-            <motion.button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleCheck();
-              }}
-              disabled={gameState !== 'AWAITING_INPUT'}
-              style={{
-                width: 64,
-                height: 64,
-                border: 'none',
-                borderRadius: 12,
-                cursor: gameState === 'AWAITING_INPUT' ? 'pointer' : 'default',
-                background: gameState === 'AWAITING_INPUT'
-                  ? 'linear-gradient(180deg, #4CAF50 0%, #388E3C 100%)'
-                  : '#BDBDBD',
-                boxShadow: gameState === 'AWAITING_INPUT'
-                  ? '0 4px 12px rgba(76, 175, 80, 0.4), inset 0 2px 0 rgba(255,255,255,0.2)'
-                  : '0 2px 4px rgba(0,0,0,0.1)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginTop: 16,
-              }}
-              whileHover={gameState === 'AWAITING_INPUT' ? { scale: 1.08, boxShadow: '0 6px 20px rgba(76, 175, 80, 0.5)' } : {}}
-              whileTap={gameState === 'AWAITING_INPUT' ? { scale: 0.95 } : {}}
-            >
-              <svg
-                width={32}
-                height={32}
-                viewBox="0 0 24 24"
-                fill="none"
-                style={{
-                  filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))',
-                }}
-              >
-                <path
-                  d="M9 6l6 6-6 6"
-                  stroke="white"
-                  strokeWidth="3.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </motion.button>
           </>
         ) : level.displayMode === 'symbolicInput' ? (
           // SYMBOLIC INPUT MODE: User inputs digits on top, read-only soroban below
@@ -917,74 +922,6 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
                 />
               </div>
             )}
-
-            {/* Read-only soroban showing target value */}
-            {displayProblem && displayProblem.targetValue > 0 && (
-              <div
-                ref={sorobanRef}
-                style={{
-                  width: 'fit-content',
-                  opacity: showFormativeFeedback ? 0.25 : 1,
-                  transition: 'opacity 0.3s ease',
-                }}
-              >
-                <Soroban
-                  key={`soroban-${displayProblem.id}-${displayProblem.targetValue}`}
-                  rodCount={level.rodCount}
-                  initialValue={displayProblem.targetValue}
-                  disabled={true}
-                  showValue={false}
-                  size="mobile"
-                  sizeConfig={responsiveSizeConfig}
-                />
-              </div>
-            )}
-
-            {/* Go button */}
-            <motion.button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleCheck();
-              }}
-              disabled={gameState !== 'AWAITING_INPUT'}
-              style={{
-                width: 64,
-                height: 64,
-                border: 'none',
-                borderRadius: 12,
-                cursor: gameState === 'AWAITING_INPUT' ? 'pointer' : 'default',
-                background: gameState === 'AWAITING_INPUT'
-                  ? 'linear-gradient(180deg, #4CAF50 0%, #388E3C 100%)'
-                  : '#BDBDBD',
-                boxShadow: gameState === 'AWAITING_INPUT'
-                  ? '0 4px 12px rgba(76, 175, 80, 0.4), inset 0 2px 0 rgba(255,255,255,0.2)'
-                  : '0 2px 4px rgba(0,0,0,0.1)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginTop: 16,
-              }}
-              whileHover={gameState === 'AWAITING_INPUT' ? { scale: 1.08, boxShadow: '0 6px 20px rgba(76, 175, 80, 0.5)' } : {}}
-              whileTap={gameState === 'AWAITING_INPUT' ? { scale: 0.95 } : {}}
-            >
-              <svg
-                width={32}
-                height={32}
-                viewBox="0 0 24 24"
-                fill="none"
-                style={{
-                  filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))',
-                }}
-              >
-                <path
-                  d="M9 6l6 6-6 6"
-                  stroke="white"
-                  strokeWidth="3.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </motion.button>
           </>
         ) : (level.displayMode === 'addition' || level.displayMode === 'rollingAddition') ? (
           // ADDITION MODE: Multi-step addition problem (also handles rolling addition)
@@ -1009,83 +946,10 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
                   onSumDigitBoxRefs={setAdditionSumDigitBoxPositions}
                   flashingDigits={additionFlashingDigits}
                   showSumForDirectFeedback={showSumForDirectFeedback}
-                  sizeConfig={responsiveSizeConfig}
+                  // sizeConfig removed for mobile consolidation
                 />
               </div>
             )}
-
-            {/* Interactive soroban */}
-            <div
-              ref={sorobanRef}
-              style={{
-                width: 'fit-content',
-                opacity: (showFormativeFeedback || showDirectFeedback) ? 0.25 : 1,
-                transition: 'opacity 0.3s ease',
-                animation: flashActiveElement ? 'flash-highlight 0.3s ease-in-out' : 'none',
-              }}
-            >
-              <Soroban
-                key={`addition-${effectiveProblem?.id || 'initial'}-${sorobanResetKey}`}
-                rodCount={effectiveRodCount}
-                initialValue={additionSorobanInitialValue}
-                onValueChange={handleValueChange}
-                disabled={
-                  gameState !== 'AWAITING_INPUT' ||
-                  showFormativeFeedback ||
-                  showDirectFeedback ||
-                  (additionPhase !== 'ENTERING_FIRST' && additionPhase !== 'ENTERING_SUM')
-                }
-                showValue={false}
-                size="mobile"
-                sizeConfig={responsiveSizeConfig}
-              />
-            </div>
-
-            {/* Go button */}
-            <motion.button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleCheck();
-              }}
-              disabled={gameState !== 'AWAITING_INPUT'}
-              style={{
-                width: 64,
-                height: 64,
-                border: 'none',
-                borderRadius: 12,
-                cursor: gameState === 'AWAITING_INPUT' ? 'pointer' : 'default',
-                background: gameState === 'AWAITING_INPUT'
-                  ? 'linear-gradient(180deg, #4CAF50 0%, #388E3C 100%)'
-                  : '#BDBDBD',
-                boxShadow: gameState === 'AWAITING_INPUT'
-                  ? '0 4px 12px rgba(76, 175, 80, 0.4), inset 0 2px 0 rgba(255,255,255,0.2)'
-                  : '0 2px 4px rgba(0,0,0,0.1)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginTop: 16,
-              }}
-              whileHover={gameState === 'AWAITING_INPUT' ? { scale: 1.08, boxShadow: '0 6px 20px rgba(76, 175, 80, 0.5)' } : {}}
-              whileTap={gameState === 'AWAITING_INPUT' ? { scale: 0.95 } : {}}
-            >
-              <svg
-                width={32}
-                height={32}
-                viewBox="0 0 24 24"
-                fill="none"
-                style={{
-                  filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))',
-                }}
-              >
-                <path
-                  d="M9 6l6 6-6 6"
-                  stroke="white"
-                  strokeWidth="3.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </motion.button>
           </>
         ) : level.displayMode === 'tenFrameInput' ? (
           // REVERSE MODE: Interactive ten frames on top, read-only soroban below
@@ -1108,30 +972,6 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
                 collapseToUsedFrames={showFormativeFeedback}
               />
             </div>
-
-            {/* Read-only soroban showing target value */}
-            {/* Only render when we have a valid problem with non-zero target to avoid showing 0 */}
-            {displayProblem && displayProblem.targetValue > 0 && (
-              <div
-                ref={sorobanRef}
-                style={{
-                  width: 'fit-content',
-                  opacity: showFormativeFeedback ? (hideFrames ? 0 : 0.25) : 1,
-                  transition: 'opacity 0.3s ease',
-                }}
-              >
-                <Soroban
-                  key={`soroban-${displayProblem.id}-${displayProblem.targetValue}`}
-                  rodCount={level.rodCount}
-                  initialValue={displayProblem.targetValue}
-                  disabled={true} // Read-only in this mode
-                  showValue={false}
-                  size="mobile"
-                  sizeConfig={responsiveSizeConfig}
-                />
-              </div>
-            )}
-
             {/* Go button */}
             <motion.button
               onClick={(e) => {
@@ -1195,39 +1035,14 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
                 />
               </div>
             )}
-
-            {/* Soroban - key resets it when problem changes */}
-            {/* During formative feedback, fade to 25% so ghost beads can animate from same position */}
-            {/* width: fit-content ensures wrapper shrinks to frame size for accurate positioning */}
-            <div
-              ref={sorobanRef}
-              style={{
-                width: 'fit-content',
-                // During feedback: 25% opacity normally, fully hidden when all targets matched
-                opacity: showFormativeFeedback ? (hideFrames ? 0 : 0.25) : 1,
-                transition: 'opacity 0.3s ease',
-                animation: flashActiveElement ? 'flash-highlight 0.3s ease-in-out' : 'none',
-              }}
-            >
-              <Soroban
-                key={`${currentProblem?.id || 'initial'}-${sorobanResetKey}`}
-                rodCount={level.rodCount}
-                initialValue={0}
-                onValueChange={handleValueChange}
-                disabled={gameState !== 'AWAITING_INPUT' || showFormativeFeedback}
-                highlightRod={getHighlightRod()}
-                showValue={false} // Hide value during visual learning phase - symbolic matching comes later
-                size="mobile"
-                sizeConfig={responsiveSizeConfig}
-              />
-            </div>
           </>
         )}
 
       </div>
 
-      {/* Formative feedback - ST Math style one-to-one correspondence */}
-      {level.displayMode !== 'symbolic' && level.displayMode !== 'symbolicAdvanced' && (
+      {/* TEMPORARILY DISABLED: Formative feedback - ST Math style one-to-one correspondence */}
+      {/* Will re-enable after mobile consolidation is complete */}
+      {/* {level.displayMode !== 'symbolic' && level.displayMode !== 'symbolicAdvanced' && (
         <FormativeFeedback
           isActive={showFormativeFeedback}
           objects={currentProblem?.objects || []}
@@ -1244,7 +1059,7 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
           rodCount={level.rodCount}
           rodStates={rodBeadStates}
         />
-      )}
+      )} */}
 
       {/* Symbolic formative feedback - beads fly to counters, digits verify */}
       {(level.displayMode === 'symbolic' || level.displayMode === 'symbolicAdvanced') && (
@@ -1259,7 +1074,7 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
           rodCount={level.rodCount}
           rodStates={rodBeadStates}
           advancedMode={level.displayMode === 'symbolicAdvanced'}
-          sizeConfig={responsiveSizeConfig}
+          // sizeConfig removed for mobile consolidation
         />
       )}
 
@@ -1277,12 +1092,13 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
           rodCount={level.rodCount}
           rodStates={rodBeadStates}
           advancedMode={true}
-          sizeConfig={responsiveSizeConfig}
+          // sizeConfig removed for mobile consolidation
         />
       )}
 
-      {/* Addition mode feedback - verifying first number (uses advanced animation) */}
-      {(level.displayMode === 'addition' || level.displayMode === 'rollingAddition') && additionPhase === 'VERIFYING_FIRST' && (
+      {/* TEMPORARILY DISABLED: Addition mode bead animations */}
+      {/* TODO: Re-enable after fixing bead sizing issues */}
+      {/* {(level.displayMode === 'addition' || level.displayMode === 'rollingAddition') && additionPhase === 'VERIFYING_FIRST' && (
         <SymbolicFormativeFeedback
           isActive={showFormativeFeedback}
           targetValue={effectiveProblem?.operand1 || 0}
@@ -1294,11 +1110,9 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
           rodCount={effectiveRodCount}
           rodStates={rodBeadStates}
           advancedMode={true}
-          sizeConfig={responsiveSizeConfig}
         />
       )}
 
-      {/* Addition mode feedback - verifying sum (wrong answer path, uses advanced animation) */}
       {(level.displayMode === 'addition' || level.displayMode === 'rollingAddition') && additionPhase === 'VERIFYING_SUM' && (
         <SymbolicFormativeFeedback
           isActive={showFormativeFeedback}
@@ -1311,11 +1125,9 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
           rodCount={effectiveRodCount}
           rodStates={rodBeadStates}
           advancedMode={true}
-          sizeConfig={responsiveSizeConfig}
         />
       )}
 
-      {/* Direct feedback - streamlined correct answer flow (beads fly to digits, no counter row) */}
       {(level.displayMode === 'addition' || level.displayMode === 'rollingAddition') && additionPhase === 'ENTERING_SUM' && (
         <DirectFeedback
           isActive={showDirectFeedback}
@@ -1325,9 +1137,8 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
           onComplete={handleDirectFeedbackComplete}
           rodCount={effectiveRodCount}
           rodStates={rodBeadStates}
-          sizeConfig={responsiveSizeConfig}
         />
-      )}
+      )} */}
 
       {/* Level instruction popup - shown on first visit to demo levels */}
       <LevelInstructionPopup
@@ -1528,6 +1339,6 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </MobileGameLayout>
   );
 }
