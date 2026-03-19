@@ -51,7 +51,7 @@ export function MobileGameLayout({
 }: MobileGameLayoutProps) {
   // Fixed heights for layout calculation
   const CONTROL_BAR_HEIGHT = 88; // 56px button + 32px padding
-  const SOROBAN_AREA_HEIGHT = 420; // Fixed space for soroban + value display
+  const SOROBAN_AREA_HEIGHT = 520; // INCREASED for taller soroban + value display
 
   // Calculate soroban area position from bottom
   const sorobanBottomPosition = CONTROL_BAR_HEIGHT;

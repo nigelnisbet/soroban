@@ -68,12 +68,12 @@ export function Soroban({
   const framePadding = sizeConfig.framepadding;
   const frameWidth = rodCount * rodWidth + framePadding * 2;
 
-  // Height calculation matching SorobanRod
+  // Height calculation matching SorobanRod - UPDATED for taller rod
   const beadSize = sizeConfig.beadSize;
   const beadSpacing = sizeConfig.beadSpacing;
-  const heavenSectionHeight = beadSize * 1.5 + beadSpacing * 2;
-  const dividerHeight = 12;
-  const earthSectionHeight = beadSize * 4 + beadSpacing * 5;
+  const heavenSectionHeight = beadSize * 2.0 + beadSpacing * 3; // MATCHES SorobanRod.tsx
+  const dividerHeight = 16; // MATCHES SorobanRod.tsx
+  const earthSectionHeight = beadSize * 5.5 + beadSpacing * 7; // MATCHES SorobanRod.tsx
   const frameHeight = heavenSectionHeight + dividerHeight + earthSectionHeight + framePadding * 2;
 
   return (
