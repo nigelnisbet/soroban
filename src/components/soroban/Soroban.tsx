@@ -24,7 +24,6 @@ export function Soroban({
     numberToRodStates(initialValue, rodCount)
   );
 
-  // Use custom size config if provided, otherwise use preset
   const sizeConfig = customSizeConfig || SIZES[size];
   const totalValue = calculateSorobanValue(rods);
 
@@ -37,48 +36,33 @@ export function Soroban({
     });
   }, [rodCount]);
 
-  // Reset to initialValue when it changes (e.g., new problem)
+  // Reset to initialValue when it changes
   useEffect(() => {
-    console.log(`🔄 SOROBAN RESET EFFECT TRIGGERED - initialValue=${initialValue}, rodCount=${rodCount}`);
-    console.log(`   Stack trace:`, new Error().stack);
     setRods(numberToRodStates(initialValue, rodCount));
   }, [initialValue, rodCount]);
 
   // Notify parent of value changes
   useEffect(() => {
-    console.log(`📢 Value changed to ${totalValue}, notifying parent`);
     onValueChange?.(totalValue);
   }, [totalValue, onValueChange]);
 
   const handleRodStateChange = useCallback((rodIndex: number, newState: RodState) => {
-    console.log(`🔧 handleRodStateChange called for rod ${rodIndex}:`, newState);
-    console.log(`   Stack trace:`, new Error().stack);
     setRods((currentRods) =>
       currentRods.map((rod) => (rod.rodIndex === rodIndex ? newState : rod))
     );
   }, []);
-
-  // Reset to a specific value
-  const resetToValue = useCallback(
-    (value: number) => {
-      setRods(numberToRodStates(value, rodCount));
-    },
-    [rodCount]
-  );
-
-  // Expose reset function via ref if needed (could add forwardRef later)
 
   // Calculate dimensions
   const rodWidth = sizeConfig.rodWidth;
   const framePadding = sizeConfig.framepadding;
   const frameWidth = rodCount * rodWidth + framePadding * 2;
 
-  // Height calculation matching SorobanRod - UPDATED for taller rod
+  // Height calculation matching SorobanRod
   const beadSize = sizeConfig.beadSize;
   const beadSpacing = sizeConfig.beadSpacing;
-  const heavenSectionHeight = beadSize * 2.0 + beadSpacing * 3; // MATCHES SorobanRod.tsx
-  const dividerHeight = 16; // MATCHES SorobanRod.tsx
-  const earthSectionHeight = beadSize * 5.5 + beadSpacing * 7; // MATCHES SorobanRod.tsx
+  const heavenSectionHeight = beadSize * 2.0 + beadSpacing * 3;
+  const dividerHeight = 16;
+  const earthSectionHeight = beadSize * 5.5 + beadSpacing * 7;
   const frameHeight = heavenSectionHeight + dividerHeight + earthSectionHeight + framePadding * 2;
 
   return (
@@ -172,7 +156,7 @@ export function Soroban({
         </div>
       </motion.div>
 
-      {/* Value display - use visibility to preserve layout */}
+      {/* Value display */}
       <motion.div
         style={{
           fontSize: size === 'large' ? 48 : size === 'medium' ? 36 : 28,
