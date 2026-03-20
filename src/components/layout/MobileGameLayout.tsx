@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
 interface MobileGameLayoutProps {
@@ -55,6 +55,33 @@ export function MobileGameLayout({
 
   // Calculate soroban area position from bottom
   const sorobanBottomPosition = CONTROL_BAR_HEIGHT;
+
+  // Global touch logger - capture ALL touches on screen
+  useEffect(() => {
+    const handleGlobalTouchStart = (e: TouchEvent) => {
+      console.log('🌍 GLOBAL TOUCH START:', {
+        touchCount: e.touches.length,
+        target: (e.target as HTMLElement)?.tagName,
+        targetClasses: (e.target as HTMLElement)?.className,
+        touches: Array.from(e.touches).map(t => ({ x: t.clientX, y: t.clientY }))
+      });
+    };
+
+    const handleGlobalTouchEnd = (e: TouchEvent) => {
+      console.log('🌍 GLOBAL TOUCH END:', {
+        remainingTouches: e.touches.length,
+        target: (e.target as HTMLElement)?.tagName,
+      });
+    };
+
+    document.addEventListener('touchstart', handleGlobalTouchStart, { passive: true });
+    document.addEventListener('touchend', handleGlobalTouchEnd, { passive: true });
+
+    return () => {
+      document.removeEventListener('touchstart', handleGlobalTouchStart);
+      document.removeEventListener('touchend', handleGlobalTouchEnd);
+    };
+  }, []);
 
   return (
     <div
@@ -146,6 +173,9 @@ export function MobileGameLayout({
           justifyContent: 'center',
           flexShrink: 0,
           padding: '0 20px',
+          userSelect: 'none', // Prevent text selection
+          WebkitUserSelect: 'none', // iOS Safari
+          WebkitTouchCallout: 'none', // Prevent iOS callout menu
         }}
       >
         {soroban}

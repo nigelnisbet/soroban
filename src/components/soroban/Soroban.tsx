@@ -39,15 +39,20 @@ export function Soroban({
 
   // Reset to initialValue when it changes (e.g., new problem)
   useEffect(() => {
+    console.log(`🔄 SOROBAN RESET EFFECT TRIGGERED - initialValue=${initialValue}, rodCount=${rodCount}`);
+    console.log(`   Stack trace:`, new Error().stack);
     setRods(numberToRodStates(initialValue, rodCount));
   }, [initialValue, rodCount]);
 
   // Notify parent of value changes
   useEffect(() => {
+    console.log(`📢 Value changed to ${totalValue}, notifying parent`);
     onValueChange?.(totalValue);
   }, [totalValue, onValueChange]);
 
   const handleRodStateChange = useCallback((rodIndex: number, newState: RodState) => {
+    console.log(`🔧 handleRodStateChange called for rod ${rodIndex}:`, newState);
+    console.log(`   Stack trace:`, new Error().stack);
     setRods((currentRods) =>
       currentRods.map((rod) => (rod.rodIndex === rodIndex ? newState : rod))
     );

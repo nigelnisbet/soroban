@@ -1,11 +1,8 @@
-import { useRef } from 'react';
-import { motion, PanInfo } from 'framer-motion';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { motion } from 'framer-motion';
 
 interface BeadProps {
   type: 'heaven' | 'earth';
   isActive: boolean;
-  onToggle: () => void;
   disabled?: boolean;
   highlighted?: boolean;
   size: number;
@@ -15,13 +12,11 @@ interface BeadProps {
 export function Bead({
   type,
   isActive,
-  onToggle,
   disabled = false,
   highlighted = false,
   size,
   positionY,
 }: BeadProps) {
-  const hasTriggeredRef = useRef(false);
 
   // Kite-shaped beads like real soroban - wider horizontally than vertically
   // Heaven beads are slightly larger - INCREASED HEIGHT for better multitouch
@@ -37,70 +32,16 @@ export function Bead({
   const activeGradientEnd = type === 'heaven' ? '#8B5A2B' : '#B8860B'; // Warm brown / Dark goldenrod
   const highlightColor = '#FFD700';
 
-  const DRAG_THRESHOLD = 15; // pixels
-
-  const handlePanStart = () => {
-    if (disabled) return;
-    hasTriggeredRef.current = false;
-
-    // Light haptic on touch (will be silent in browser)
-    try {
-      Haptics.impact({ style: ImpactStyle.Light });
-    } catch (e) {
-      // Haptics not available in browser
-    }
-  };
-
-  const handlePan = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    if (disabled || hasTriggeredRef.current) return;
-
-    const dragDistance = info.offset.y;
-
-    // Heaven beads: drag DOWN to activate, drag UP to deactivate
-    // Earth beads: drag UP to activate, drag DOWN to deactivate
-    let shouldToggle = false;
-
-    if (type === 'heaven') {
-      if (!isActive && dragDistance > DRAG_THRESHOLD) {
-        shouldToggle = true; // Drag down to activate
-      } else if (isActive && dragDistance < -DRAG_THRESHOLD) {
-        shouldToggle = true; // Drag up to deactivate
-      }
-    } else {
-      // earth bead
-      if (!isActive && dragDistance < -DRAG_THRESHOLD) {
-        shouldToggle = true; // Drag up to activate
-      } else if (isActive && dragDistance > DRAG_THRESHOLD) {
-        shouldToggle = true; // Drag down to deactivate
-      }
-    }
-
-    if (shouldToggle) {
-      hasTriggeredRef.current = true;
-
-      // Medium haptic on toggle
-      try {
-        Haptics.impact({ style: ImpactStyle.Medium });
-      } catch (e) {
-        // Haptics not available in browser
-      }
-
-      onToggle();
-    }
-  };
-
   return (
     <motion.div
-      onPanStart={handlePanStart}
-      onPan={handlePan}
       style={{
         position: 'absolute',
         left: '50%',
-        cursor: disabled ? 'default' : 'grab',
         touchAction: 'none',
         userSelect: 'none',
         WebkitUserSelect: 'none',
         zIndex: type === 'heaven' ? 10 : 5,
+        pointerEvents: 'none', // Let rod handle all touch events
       }}
       initial={false}
       animate={{
@@ -108,8 +49,6 @@ export function Bead({
         x: '-50%',
         scale: highlighted ? 1.1 : 1,
       }}
-      whileHover={disabled ? {} : { scale: 1.05 }}
-      whileTap={disabled ? {} : { scale: 0.95 }}
       transition={{
         type: 'spring',
         stiffness: 300,
@@ -122,6 +61,7 @@ export function Bead({
           width: beadWidth,
           height: beadHeight,
           position: 'relative',
+          overflow: 'visible', // Allow glow to extend beyond bead
         }}
       >
         {/* Use SVG for proper kite/diamond shape with correct proportions */}

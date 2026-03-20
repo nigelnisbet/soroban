@@ -220,6 +220,8 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
   // Handle soroban value change
   const handleValueChange = useCallback(
     (value: number) => {
+      console.log(`🎯 handleValueChange called with value=${value}`);
+      console.log(`   Stack trace:`, new Error().stack);
       updateCurrentValue(value);
     },
     [updateCurrentValue]
@@ -227,6 +229,7 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
 
   // Handle check button click - now triggers formative feedback animation
   const handleCheck = useCallback(() => {
+    console.log('🔵 GO BUTTON TRIGGERED - gameState:', gameState);
     if (gameState === 'AWAITING_INPUT') {
       // Reset sorobanRect to null to ensure feedback component waits for fresh position
       // This prevents using stale rect from previous problem
@@ -864,6 +867,7 @@ export function GameContainer({ level, onExit, onLevelComplete }: GameContainerP
       onGo={handleCheck}
       onReset={() => {
         // Force reset soroban to initial state
+        console.log('⚠️ RESET BUTTON PRESSED - resetting soroban');
         setSorobanResetKey(prev => prev + 1);
       }}
       goDisabled={gameState !== 'AWAITING_INPUT'}

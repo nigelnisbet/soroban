@@ -26,6 +26,8 @@ export function SorobanRod({
   size,
   sizeConfig: customSizeConfig,
 }: SorobanRodProps) {
+  const BUILD_VERSION = 'v1.2.7'; // UPDATE THIS EVERY CHANGE
+
   const sizeConfig = customSizeConfig || SIZES[size];
   const { beadSize, beadSpacing } = sizeConfig;
 
@@ -34,14 +36,35 @@ export function SorobanRod({
     heaven?: boolean;
     earthBead?: number;
   }>({});
+
+  // Track what needs to toggle when fingers are released
+  const pendingToggles = useRef<{
+    heaven: boolean;
+    earthBeads: Set<number>;
+  }>({
+    heaven: false,
+    earthBeads: new Set(),
+  });
+
   const touchStartPositions = useRef<Map<number, {
     x: number;
     y: number;
     section: 'heaven' | 'earth';
     earthBeadIndex?: number;
   }>>(new Map());
-  const hasTriggeredHeavenToggle = useRef(false);
-  const hasTriggeredEarthToggle = useRef(false);
+
+  // Failsafe timeout to clear stuck highlights
+  const highlightTimeoutRef = useRef<number | null>(null);
+
+  // Log version on mount and state changes
+  useEffect(() => {
+    console.log(`🔵 SorobanRod ${BUILD_VERSION} mounted (rod ${rodIndex})`);
+  }, []);
+
+  // Log when state changes externally (not from our touch handlers)
+  useEffect(() => {
+    console.log(`📊 STATE CHANGED (rod ${rodIndex}): value=${state.earthBeadsActive + (state.heavenBeadActive ? 5 : 0)}, heaven=${state.heavenBeadActive}, earth=${state.earthBeadsActive}`);
+  }, [state, rodIndex]);
 
   // Calculate positions - INCREASED for better multitouch spacing
   // Heaven section at top, divider bar in middle, earth section at bottom
@@ -114,204 +137,350 @@ export function SorobanRod({
     }
   };
 
-  // Multitouch gesture handling - detect which beads are touched, call toggle functions
+  // Unified touch gesture handling - ALL touches (1 or 2 fingers)
+  // Detect which beads are touched, call toggle functions
+  // Also supports mouse for browser testing
   useEffect(() => {
     if (disabled || !rodRef.current) return;
 
     const rodElement = rodRef.current;
-    const DRAG_THRESHOLD = 15;
+    let mouseStartPos: { x: number; y: number; section: 'heaven' | 'earth'; earthBeadIndex?: number; hasTriggered: boolean } | null = null;
 
     const handleTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
-        e.preventDefault();
-        hasTriggeredHeavenToggle.current = false;
-        hasTriggeredEarthToggle.current = false;
+      e.preventDefault(); // Handle ALL touches
 
-        const touch1 = e.touches[0];
-        const touch2 = e.touches[1];
-        const rect = rodElement.getBoundingClientRect();
+      const startingValue = state.earthBeadsActive + (state.heavenBeadActive ? 5 : 0);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('🟢 TOUCH START | Starting value:', startingValue);
+      console.log('   Heaven active:', state.heavenBeadActive, '| Earth active beads:', state.earthBeadsActive);
 
-        // Detect which bead was touched with STATE-AWARE touch zones
-        const getTouchInfo = (clientY: number) => {
-          const relativeY = clientY - rect.top;
-          const heavenSectionHeight = beadSize * 2.0 + beadSpacing * 3;
-          const dividerHeight = 16;
-          const earthSectionStart = heavenSectionHeight + dividerHeight;
+      const rect = rodElement.getBoundingClientRect();
 
-          if (relativeY < heavenSectionHeight) {
-            return { section: 'heaven' as const };
-          } else {
-            // STATE-AWARE: Each bead has a touch zone based on where you'd naturally touch it
-            const earthY = relativeY - earthSectionStart;
-            const actualEarthBeadHeight = beadSize * 1.0;
+      // Detect which bead was touched with STATE-AWARE touch zones
+      const getTouchInfo = (clientY: number) => {
+        const relativeY = clientY - rect.top;
+        const heavenSectionHeight = beadSize * 2.0 + beadSpacing * 3;
+        const dividerHeight = 16;
+        const earthSectionStart = heavenSectionHeight + dividerHeight;
 
-            let selectedBead = -1;
+        if (relativeY < heavenSectionHeight) {
+          return { section: 'heaven' as const };
+        } else {
+          // Simple fixed touch zones: each bead owns space equally around its center
+          const earthY = relativeY - earthSectionStart;
+          const actualEarthBeadHeight = beadSize * 1.0;
+          const touchZoneRadius = actualEarthBeadHeight * 1.5; // Generous touch area
 
-            // Check each bead's state-aware touch zone
-            for (let i = 0; i < 4; i++) {
-              const isActive = i < state.earthBeadsActive;
-              const beadCenterY = getEarthBeadY(i, isActive);
+          let selectedBead = -1;
+          let minDistance = Infinity;
 
-              let touchZoneStart, touchZoneEnd;
+          // Find the closest bead
+          for (let i = 0; i < 4; i++) {
+            const isActive = i < state.earthBeadsActive;
+            const beadAbsoluteY = getEarthBeadY(i, isActive);
+            const beadCenterY = beadAbsoluteY - earthSectionStart;
+            const distance = Math.abs(earthY - beadCenterY);
 
-              if (isActive) {
-                // ACTIVE beads (at top): Touch zone extends MORE on the UPPER side
-                // You naturally touch the top part to drag down
-                touchZoneStart = beadCenterY - actualEarthBeadHeight * 1.2;
-                touchZoneEnd = beadCenterY + actualEarthBeadHeight * 0.5;
-              } else {
-                // INACTIVE beads (at bottom): Touch zone extends MORE on the LOWER side
-                // You naturally touch the bottom part to drag up
-                touchZoneStart = beadCenterY - actualEarthBeadHeight * 0.5;
-                touchZoneEnd = beadCenterY + actualEarthBeadHeight * 1.2;
-              }
-
-              // Check if touch is in this bead's zone
-              if (earthY >= touchZoneStart && earthY <= touchZoneEnd) {
-                selectedBead = i;
-                break; // Found it!
-              }
+            // Within touch radius of this bead?
+            if (distance < touchZoneRadius && distance < minDistance) {
+              minDistance = distance;
+              selectedBead = i;
             }
-
-            // Fallback to closest if no zone matched
-            if (selectedBead === -1) {
-              let minDistance = Infinity;
-              for (let i = 0; i < 4; i++) {
-                const beadY = getEarthBeadY(i, i < state.earthBeadsActive);
-                const distance = Math.abs(earthY - beadY);
-                if (distance < minDistance) {
-                  minDistance = distance;
-                  selectedBead = i;
-                }
-              }
-            }
-
-            return {
-              section: 'earth' as const,
-              earthBeadIndex: selectedBead,
-            };
           }
-        };
 
-        const info1 = getTouchInfo(touch1.clientY);
-        const info2 = getTouchInfo(touch2.clientY);
-
-        touchStartPositions.current.set(touch1.identifier, {
-          x: touch1.clientX,
-          y: touch1.clientY,
-          ...info1,
-        });
-        touchStartPositions.current.set(touch2.identifier, {
-          x: touch2.clientX,
-          y: touch2.clientY,
-          ...info2,
-        });
-
-        // Show visual preview of what will be affected
-        setPreviewTouches({
-          heaven: info1.section === 'heaven' || info2.section === 'heaven',
-          earthBead: info1.section === 'earth' ? info1.earthBeadIndex :
-                     info2.section === 'earth' ? info2.earthBeadIndex : undefined,
-        });
-
-        try {
-          Haptics.impact({ style: ImpactStyle.Light });
-        } catch (e) {
-          // Haptics not available
+          return {
+            section: 'earth' as const,
+            earthBeadIndex: selectedBead,
+          };
         }
+      };
+
+      // Clear pending toggles and preview on EVERY touch start
+      // This handles the case where user adds/changes fingers without lifting all
+      pendingToggles.current = {
+        heaven: false,
+        earthBeads: new Set(),
+      };
+      setPreviewTouches({}); // Clear stale previews
+
+      // Process ALL touches
+      for (let i = 0; i < e.touches.length; i++) {
+        const touch = e.touches[i];
+        const absoluteY = touch.clientY;
+        const relativeY = absoluteY - rect.top;
+        const info = getTouchInfo(absoluteY);
+
+        console.log(`   Touch ${i}: absoluteY=${absoluteY.toFixed(1)} relativeY=${relativeY.toFixed(1)}`);
+
+        if (info.section === 'heaven') {
+          console.log('   → Detected: HEAVEN BEAD');
+        } else if (info.section === 'earth' && info.earthBeadIndex !== undefined && info.earthBeadIndex !== -1) {
+          const isActive = info.earthBeadIndex < state.earthBeadsActive;
+          console.log(`   → Detected: Earth Bead ${info.earthBeadIndex} (${isActive ? 'ACTIVE' : 'INACTIVE'})`);
+        } else {
+          console.log('   → No bead detected at this position');
+        }
+
+        touchStartPositions.current.set(touch.identifier, {
+          x: touch.clientX,
+          y: touch.clientY,
+          ...info,
+        });
+
+        // Mark what needs to toggle on release
+        if (info.section === 'heaven') {
+          pendingToggles.current.heaven = true;
+        } else if (info.section === 'earth' && info.earthBeadIndex !== undefined && info.earthBeadIndex !== -1) {
+          pendingToggles.current.earthBeads.add(info.earthBeadIndex);
+        }
+      }
+
+      // Clear any existing timeout
+      if (highlightTimeoutRef.current !== null) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+
+      // Set failsafe timeout to clear highlights if touchend doesn't fire (2 seconds)
+      highlightTimeoutRef.current = window.setTimeout(() => {
+        console.log('⚠️ Failsafe timeout - clearing stuck highlights');
+        setPreviewTouches({});
+        touchStartPositions.current.clear();
+        pendingToggles.current = {
+          heaven: false,
+          earthBeads: new Set(),
+        };
+      }, 2000);
+
+      // Show visual preview
+      let heavenPreview = false;
+      let earthBeadPreview: number | undefined = undefined;
+
+      for (let i = 0; i < e.touches.length; i++) {
+        const info = getTouchInfo(e.touches[i].clientY);
+        if (info.section === 'heaven') {
+          heavenPreview = true;
+        } else if (info.section === 'earth' && earthBeadPreview === undefined) {
+          earthBeadPreview = info.earthBeadIndex;
+        }
+      }
+
+      setPreviewTouches({
+        heaven: heavenPreview,
+        earthBead: earthBeadPreview,
+      });
+
+      try {
+        Haptics.impact({ style: ImpactStyle.Light });
+      } catch (e) {
+        // Haptics not available
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
-        e.preventDefault();
-
-        const touch1 = e.touches[0];
-        const touch2 = e.touches[1];
-
-        const start1 = touchStartPositions.current.get(touch1.identifier);
-        const start2 = touchStartPositions.current.get(touch2.identifier);
-
-        if (!start1 || !start2) return;
-
-        // HEAVEN FINGER
-        const heavenTouch = start1.section === 'heaven' ? { touch: touch1, start: start1 } :
-                           start2.section === 'heaven' ? { touch: touch2, start: start2 } : null;
-
-        if (heavenTouch && !hasTriggeredHeavenToggle.current) {
-          const dy = heavenTouch.touch.clientY - heavenTouch.start.y;
-
-          // Heaven: drag DOWN to activate, drag UP to deactivate
-          let shouldToggle = false;
-          if (!state.heavenBeadActive && dy > DRAG_THRESHOLD) {
-            shouldToggle = true;
-          } else if (state.heavenBeadActive && dy < -DRAG_THRESHOLD) {
-            shouldToggle = true;
-          }
-
-          if (shouldToggle) {
-            hasTriggeredHeavenToggle.current = true;
-            toggleHeavenBead();
-            try {
-              Haptics.impact({ style: ImpactStyle.Medium });
-            } catch (e) {
-              // Haptics not available
-            }
-          }
-        }
-
-        // EARTH FINGER
-        const earthTouch = start1.section === 'earth' ? { touch: touch1, start: start1 } :
-                          start2.section === 'earth' ? { touch: touch2, start: start2 } : null;
-
-        if (earthTouch && earthTouch.start.earthBeadIndex !== undefined && !hasTriggeredEarthToggle.current) {
-          const dy = earthTouch.touch.clientY - earthTouch.start.y;
-          const beadIndex = earthTouch.start.earthBeadIndex;
-          const isCurrentlyActive = beadIndex < state.earthBeadsActive;
-
-          // Earth: drag UP to activate, drag DOWN to deactivate
-          let shouldToggle = false;
-          if (!isCurrentlyActive && dy < -DRAG_THRESHOLD) {
-            shouldToggle = true;
-          } else if (isCurrentlyActive && dy > DRAG_THRESHOLD) {
-            shouldToggle = true;
-          }
-
-          if (shouldToggle) {
-            hasTriggeredEarthToggle.current = true;
-            toggleEarthBead(beadIndex); // Calls existing function with correct logic!
-            try {
-              Haptics.impact({ style: ImpactStyle.Medium });
-            } catch (e) {
-              // Haptics not available
-            }
-          }
-        }
-      }
+      e.preventDefault(); // Prevent scrolling, but we don't toggle on move anymore
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
+      // Clean up touch tracking
       for (let i = 0; i < e.changedTouches.length; i++) {
         touchStartPositions.current.delete(e.changedTouches[i].identifier);
       }
+
+      // All fingers lifted? Apply all pending toggles in ONE state update
       if (e.touches.length === 0) {
+        console.log('🔴 TOUCH END | Applying changes...');
+
+        // Clear the failsafe timeout
+        if (highlightTimeoutRef.current !== null) {
+          clearTimeout(highlightTimeoutRef.current);
+          highlightTimeoutRef.current = null;
+        }
+
+        // Calculate the NEW state based on ALL toggles
+        let newState = { ...state };
+
+        // Toggle heaven if needed
+        if (pendingToggles.current.heaven) {
+          console.log('   Toggling heaven bead:', !state.heavenBeadActive ? 'ACTIVATE' : 'DEACTIVATE');
+          newState.heavenBeadActive = !state.heavenBeadActive;
+        }
+
+        // Toggle earth beads if needed
+        pendingToggles.current.earthBeads.forEach(beadIndex => {
+          const isCurrentlyActive = beadIndex < state.earthBeadsActive;
+
+          if (isCurrentlyActive) {
+            console.log(`   Deactivating earth bead ${beadIndex} (and all above it)`);
+            newState.earthBeadsActive = Math.min(newState.earthBeadsActive, beadIndex);
+          } else {
+            console.log(`   Activating earth bead ${beadIndex} (and all below it)`);
+            newState.earthBeadsActive = Math.max(newState.earthBeadsActive, beadIndex + 1);
+          }
+        });
+
+        const endingValue = newState.earthBeadsActive + (newState.heavenBeadActive ? 5 : 0);
+        console.log('   Ending value:', endingValue);
+        console.log('   Heaven active:', newState.heavenBeadActive, '| Earth active beads:', newState.earthBeadsActive);
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+        // Apply the complete state change in ONE update
+        onStateChange(newState);
+
+        try {
+          Haptics.impact({ style: ImpactStyle.Medium });
+        } catch (e) {
+          // Haptics not available
+        }
+
         touchStartPositions.current.clear();
-        hasTriggeredHeavenToggle.current = false;
-        hasTriggeredEarthToggle.current = false;
-        setPreviewTouches({}); // Clear visual preview
+        setPreviewTouches({});
+
+        // Clear pending toggles
+        pendingToggles.current = {
+          heaven: false,
+          earthBeads: new Set(),
+        };
       }
     };
 
+    const handleTouchCancel = (_e: TouchEvent) => {
+      console.log('⚠️ TOUCH CANCELLED - cleaning up');
+
+      // Clear the failsafe timeout
+      if (highlightTimeoutRef.current !== null) {
+        clearTimeout(highlightTimeoutRef.current);
+        highlightTimeoutRef.current = null;
+      }
+
+      // Clean up everything
+      touchStartPositions.current.clear();
+      setPreviewTouches({});
+      pendingToggles.current = {
+        heaven: false,
+        earthBeads: new Set(),
+      };
+    };
+
+    // Mouse handlers for browser testing
+    const handleMouseDown = (e: MouseEvent) => {
+      e.preventDefault();
+
+      const rect = rodElement.getBoundingClientRect();
+      const getTouchInfo = (clientY: number) => {
+        const relativeY = clientY - rect.top;
+        const heavenSectionHeight = beadSize * 2.0 + beadSpacing * 3;
+        const dividerHeight = 16;
+        const earthSectionStart = heavenSectionHeight + dividerHeight;
+
+        if (relativeY < heavenSectionHeight) {
+          return { section: 'heaven' as const };
+        } else {
+          const earthY = relativeY - earthSectionStart;
+          const actualEarthBeadHeight = beadSize * 1.0;
+
+          let selectedBead = -1;
+
+          for (let i = 0; i < 4; i++) {
+            const isActive = i < state.earthBeadsActive;
+            const beadCenterY = getEarthBeadY(i, isActive);
+
+            let touchZoneStart, touchZoneEnd;
+
+            if (isActive) {
+              touchZoneStart = beadCenterY - actualEarthBeadHeight * 1.2;
+              touchZoneEnd = beadCenterY + actualEarthBeadHeight * 0.5;
+            } else {
+              touchZoneStart = beadCenterY - actualEarthBeadHeight * 0.5;
+              touchZoneEnd = beadCenterY + actualEarthBeadHeight * 1.2;
+            }
+
+            if (earthY >= touchZoneStart && earthY <= touchZoneEnd) {
+              selectedBead = i;
+              break;
+            }
+          }
+
+          if (selectedBead === -1) {
+            let minDistance = Infinity;
+            for (let i = 0; i < 4; i++) {
+              const beadY = getEarthBeadY(i, i < state.earthBeadsActive);
+              const distance = Math.abs(earthY - beadY);
+              if (distance < minDistance) {
+                minDistance = distance;
+                selectedBead = i;
+              }
+            }
+          }
+
+          return {
+            section: 'earth' as const,
+            earthBeadIndex: selectedBead,
+          };
+        }
+      };
+
+      const info = getTouchInfo(e.clientY);
+      mouseStartPos = {
+        x: e.clientX,
+        y: e.clientY,
+        ...info,
+        hasTriggered: false,
+      };
+
+      setPreviewTouches({
+        heaven: info.section === 'heaven',
+        earthBead: info.section === 'earth' ? info.earthBeadIndex : undefined,
+      });
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      e.preventDefault(); // Prevent text selection, but we don't toggle on move anymore
+    };
+
+    const handleMouseUp = () => {
+      // Toggle bead on RELEASE (mouseup) - mouse is always single touch, so simple
+      if (mouseStartPos) {
+        if (mouseStartPos.section === 'heaven') {
+          toggleHeavenBead();
+        } else if (mouseStartPos.section === 'earth' && mouseStartPos.earthBeadIndex !== undefined) {
+          toggleEarthBead(mouseStartPos.earthBeadIndex);
+        }
+
+        try {
+          Haptics.impact({ style: ImpactStyle.Medium });
+        } catch (e) {
+          // Haptics not available
+        }
+      }
+
+      mouseStartPos = null;
+      setPreviewTouches({});
+    };
+
+    // Add both touch and mouse event listeners
     rodElement.addEventListener('touchstart', handleTouchStart, { passive: false });
     rodElement.addEventListener('touchmove', handleTouchMove, { passive: false });
     rodElement.addEventListener('touchend', handleTouchEnd);
-    rodElement.addEventListener('touchcancel', handleTouchEnd);
+    rodElement.addEventListener('touchcancel', handleTouchCancel);
+
+    rodElement.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
 
     return () => {
+      // Clear timeout on cleanup
+      if (highlightTimeoutRef.current !== null) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+
       rodElement.removeEventListener('touchstart', handleTouchStart);
       rodElement.removeEventListener('touchmove', handleTouchMove);
       rodElement.removeEventListener('touchend', handleTouchEnd);
-      rodElement.removeEventListener('touchcancel', handleTouchEnd);
+      rodElement.removeEventListener('touchcancel', handleTouchCancel);
+
+      rodElement.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
     };
   }, [disabled, state, onStateChange, beadSize, beadSpacing]);
 
@@ -322,6 +491,10 @@ export function SorobanRod({
         position: 'relative',
         width: sizeConfig.rodWidth,
         height: totalHeight,
+        touchAction: 'none', // Prevent default touch behaviors
+        userSelect: 'none', // Prevent text selection
+        WebkitUserSelect: 'none', // iOS Safari
+        WebkitTouchCallout: 'none', // Prevent iOS callout menu
         // Glow highlight effect
         ...(glowHighlight && {
           background: 'rgba(255, 215, 0, 0.15)',
@@ -363,7 +536,6 @@ export function SorobanRod({
       <Bead
         type="heaven"
         isActive={state.heavenBeadActive}
-        onToggle={toggleHeavenBead}
         disabled={disabled}
         highlighted={highlighted || previewTouches.heaven}
         size={beadSize}
@@ -381,10 +553,12 @@ export function SorobanRod({
           const touchedBeadIsActive = touchedBead < state.earthBeadsActive;
 
           if (touchedBeadIsActive) {
-            // Deactivating ACTIVE bead: affects touched bead and all ACTIVE beads BELOW it
+            // Deactivating ACTIVE bead: only affects ACTIVE beads from touched bead and higher
+            // Example: touching active bead 1 (when value=3) deactivates beads 1 and 2, but NOT bead 3 (already inactive)
             willBeAffected = isActive && beadIndex >= touchedBead;
           } else {
-            // Activating INACTIVE bead: affects touched bead and all INACTIVE beads ABOVE it
+            // Activating INACTIVE bead: only affects INACTIVE beads from touched bead and lower
+            // Example: touching inactive bead 2 (when value=1) activates beads 1 and 2, but NOT bead 0 (already active)
             willBeAffected = !isActive && beadIndex <= touchedBead;
           }
         }
@@ -394,7 +568,6 @@ export function SorobanRod({
             key={`earth-${beadIndex}`}
             type="earth"
             isActive={isActive}
-            onToggle={() => toggleEarthBead(beadIndex)}
             disabled={disabled}
             highlighted={highlighted || willBeAffected}
             size={beadSize}

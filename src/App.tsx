@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Soroban } from './components/soroban/Soroban';
 import { GameContainer } from './components/game/GameContainer';
@@ -15,6 +15,38 @@ type LevelSet = 'demo' | 'full' | 'complements';
 type MultiplicationMode = 'area' | 'symbolic';
 
 function App() {
+  // GLOBAL TOUCH LOGGER - captures ALL touches everywhere
+  useEffect(() => {
+    const logTouch = (e: TouchEvent) => {
+      const target = e.target as HTMLElement;
+      console.log('🌍 GLOBAL TOUCH:', {
+        type: e.type,
+        touches: e.touches.length,
+        target: target?.tagName,
+        className: target?.className,
+        id: target?.id,
+        style: target?.style?.pointerEvents || 'default',
+        parentTag: target?.parentElement?.tagName,
+        parentClass: target?.parentElement?.className,
+      });
+    };
+
+    document.addEventListener('touchstart', logTouch, true);
+    document.addEventListener('touchend', logTouch, true);
+    document.addEventListener('touchcancel', logTouch, true);
+    document.addEventListener('click', (e) => {
+      console.log('🌍 GLOBAL CLICK:', {
+        target: (e.target as HTMLElement)?.tagName,
+        className: (e.target as HTMLElement)?.className,
+      });
+    }, true);
+
+    return () => {
+      document.removeEventListener('touchstart', logTouch, true);
+      document.removeEventListener('touchend', logTouch, true);
+      document.removeEventListener('touchcancel', logTouch, true);
+    };
+  }, []);
   const [screen, setScreen] = useState<Screen>('home');
   const [selectedLevel, setSelectedLevel] = useState<LevelDefinition | null>(null);
   const [practiceRodCount, setPracticeRodCount] = useState(1);
