@@ -1,15 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { NumberMatching } from './components/matching/NumberMatching';
 import { PracticeMode } from './components/practice/PracticeMode';
 import { AdditionChallenge } from './components/challenge/AdditionChallenge';
 import { ChallengeResults } from './components/challenge/ChallengeResults';
 import './App.css';
 
-type Screen = 'menu' | 'practice' | 'addition' | 'results';
+const APP_VERSION = 'v1.0.2';
+
+type Screen = 'menu' | 'matching' | 'practice' | 'addition' | 'results';
 
 function App() {
   const [screen, setScreen] = useState<Screen>('menu');
   const [completionTime, setCompletionTime] = useState(0);
+
+  useEffect(() => {
+    console.log(`🚀 Soroban App ${APP_VERSION} loaded`);
+  }, []);
 
   if (screen === 'menu') {
     return (
@@ -34,8 +41,27 @@ function App() {
             textShadow: '0 2px 4px rgba(0,0,0,0.1)',
           }}
         >
-          Soroban
+          Soroban Learning
         </h1>
+
+        <motion.button
+          onClick={() => setScreen('matching')}
+          style={{
+            padding: '20px 40px',
+            fontSize: 24,
+            fontWeight: 'bold',
+            color: 'white',
+            background: 'linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%)',
+            border: 'none',
+            borderRadius: 12,
+            cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(156, 39, 176, 0.3)',
+          }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          Level 1: Number Matching
+        </motion.button>
 
         <motion.button
           onClick={() => setScreen('addition')}
@@ -76,6 +102,10 @@ function App() {
         </motion.button>
       </div>
     );
+  }
+
+  if (screen === 'matching') {
+    return <NumberMatching onBack={() => setScreen('menu')} />;
   }
 
   if (screen === 'practice') {

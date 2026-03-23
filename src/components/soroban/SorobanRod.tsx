@@ -242,14 +242,120 @@ export function SorobanRod({
       pendingToggles.current = { heaven: false, earthBeads: new Set() };
     };
 
+    // Mouse event handlers (for desktop)
+    const handleMouseDown = (e: MouseEvent) => {
+      e.preventDefault();
+      const rect = rod.getBoundingClientRect();
+      console.log(`🖱️ MOUSE DOWN on rod ${rodIndex}`);
+
+      // Clear any previous state
+      setPreviewTouches({});
+      pendingToggles.current = { heaven: false, earthBeads: new Set() };
+
+      const relativeY = e.clientY - rect.top;
+      const newPreviews: typeof previewTouches = {};
+
+      // Detect heaven bead
+      if (relativeY >= 0 && relativeY < dividerY) {
+        console.log(`   → Detected HEAVEN bead`);
+        newPreviews.heaven = true;
+        pendingToggles.current.heaven = true;
+        Haptics.impact({ style: ImpactStyle.Light });
+      }
+      // Detect earth beads
+      else if (relativeY >= earthSectionTop && relativeY < rect.height) {
+        const earthY = relativeY - earthSectionTop;
+
+        let touchedBead = -1;
+        for (let beadIdx = 0; beadIdx < 4; beadIdx++) {
+          const isActive = beadIdx < state.earthBeadsActive;
+          const beadY = getEarthBeadY(beadIdx, isActive);
+          const localBeadY = beadY - earthSectionTop;
+          const distance = Math.abs(earthY - localBeadY);
+
+          if (distance < beadSize * 1.0) {
+            touchedBead = beadIdx;
+            break;
+          }
+        }
+
+        if (touchedBead >= 0) {
+          console.log(`   → Detected EARTH bead ${touchedBead}`);
+          const affectedBeads = new Set<number>();
+          const isCurrentlyActive = touchedBead < state.earthBeadsActive;
+
+          if (isCurrentlyActive) {
+            for (let i = touchedBead; i < state.earthBeadsActive; i++) {
+              affectedBeads.add(i);
+            }
+          } else {
+            for (let i = 0; i <= touchedBead; i++) {
+              affectedBeads.add(i);
+            }
+          }
+
+          newPreviews.earthBeads = affectedBeads;
+          pendingToggles.current.earthBeads.add(touchedBead);
+          Haptics.impact({ style: ImpactStyle.Light });
+        }
+      }
+
+      setPreviewTouches(newPreviews);
+    };
+
+    const handleMouseUp = (_e: MouseEvent) => {
+      console.log(`🖱️ MOUSE UP on rod ${rodIndex}`);
+
+      // Apply pending toggles
+      let newState = { ...state };
+
+      if (pendingToggles.current.heaven) {
+        console.log(`   Toggling heaven bead: ${state.heavenBeadActive} → ${!state.heavenBeadActive}`);
+        newState.heavenBeadActive = !state.heavenBeadActive;
+        Haptics.impact({ style: ImpactStyle.Medium });
+      }
+
+      if (pendingToggles.current.earthBeads.size > 0) {
+        const toggledBead = Math.min(...Array.from(pendingToggles.current.earthBeads));
+        const wasActive = toggledBead < state.earthBeadsActive;
+
+        if (wasActive) {
+          console.log(`   Deactivating earth bead ${toggledBead}: earth count ${state.earthBeadsActive} → ${toggledBead}`);
+          newState.earthBeadsActive = toggledBead;
+        } else {
+          console.log(`   Activating earth bead ${toggledBead}: earth count ${state.earthBeadsActive} → ${toggledBead + 1}`);
+          newState.earthBeadsActive = toggledBead + 1;
+        }
+        Haptics.impact({ style: ImpactStyle.Medium });
+      }
+
+      // Commit state change
+      if (newState.heavenBeadActive !== state.heavenBeadActive ||
+          newState.earthBeadsActive !== state.earthBeadsActive) {
+        const oldValue = state.earthBeadsActive + (state.heavenBeadActive ? 5 : 0);
+        const newValue = newState.earthBeadsActive + (newState.heavenBeadActive ? 5 : 0);
+        console.log(`   ✅ STATE CHANGED: value ${oldValue} → ${newValue}`);
+        onStateChange(newState);
+      }
+
+      // Clear previews and pending toggles
+      setPreviewTouches({});
+      pendingToggles.current = { heaven: false, earthBeads: new Set() };
+    };
+
+    // Add both touch and mouse listeners
     rod.addEventListener('touchstart', handleTouchStart, { passive: false });
     rod.addEventListener('touchend', handleTouchEnd);
     rod.addEventListener('touchcancel', handleTouchCancel);
+    rod.addEventListener('mousedown', handleMouseDown);
+    rod.addEventListener('mouseup', handleMouseUp);
 
     return () => {
       rod.removeEventListener('touchstart', handleTouchStart);
       rod.removeEventListener('touchend', handleTouchEnd);
       rod.removeEventListener('touchcancel', handleTouchCancel);
+      rod.removeEventListener('mousedown', handleMouseDown);
+      rod.removeEventListener('mouseup', handleMouseUp);
       if (highlightTimeoutRef.current !== null) {
         clearTimeout(highlightTimeoutRef.current);
       }
