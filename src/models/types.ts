@@ -40,6 +40,8 @@ export interface SorobanProps {
   size?: 'small' | 'medium' | 'large' | 'mobile';
   /** Custom size config (overrides size preset if provided) */
   sizeConfig?: SizeConfig;
+  /** Label to show on frame ('dot' for ones place, '×10' for tens place) */
+  frameLabel?: 'dot' | '×10';
 }
 
 // === GAME TYPES ===

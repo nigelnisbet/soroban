@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { NumberMatching } from './components/matching/NumberMatching';
+import { NumberMatchingTwo } from './components/matching/NumberMatchingTwo';
 import { PracticeMode } from './components/practice/PracticeMode';
 import { AdditionChallenge } from './components/challenge/AdditionChallenge';
 import { ChallengeResults } from './components/challenge/ChallengeResults';
@@ -8,7 +9,7 @@ import './App.css';
 
 const APP_VERSION = 'v1.0.2';
 
-type Screen = 'menu' | 'matching' | 'practice' | 'addition' | 'results';
+type Screen = 'menu' | 'matching' | 'matching-two' | 'practice' | 'addition' | 'results';
 
 function App() {
   const [screen, setScreen] = useState<Screen>('menu');
@@ -60,7 +61,26 @@ function App() {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          Level 1: Number Matching
+          Level 1: Number Matching (1-9)
+        </motion.button>
+
+        <motion.button
+          onClick={() => setScreen('matching-two')}
+          style={{
+            padding: '20px 40px',
+            fontSize: 24,
+            fontWeight: 'bold',
+            color: 'white',
+            background: 'linear-gradient(135deg, #673AB7 0%, #512DA8 100%)',
+            border: 'none',
+            borderRadius: 12,
+            cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(103, 58, 183, 0.3)',
+          }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          Level 1B: Two Digit (10-15)
         </motion.button>
 
         <motion.button
@@ -106,6 +126,10 @@ function App() {
 
   if (screen === 'matching') {
     return <NumberMatching onBack={() => setScreen('menu')} />;
+  }
+
+  if (screen === 'matching-two') {
+    return <NumberMatchingTwo onBack={() => setScreen('menu')} />;
   }
 
   if (screen === 'practice') {

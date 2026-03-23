@@ -19,6 +19,7 @@ export function Soroban({
   showValue = true,
   size = 'medium',
   sizeConfig: customSizeConfig,
+  frameLabel,
 }: SorobanProps) {
   const [rods, setRods] = useState<RodState[]>(() =>
     numberToRodStates(initialValue, rodCount)
@@ -115,8 +116,29 @@ export function Soroban({
             height: framePadding,
             background: 'linear-gradient(180deg, #7A6548 0%, #5D4632 100%)',
             borderRadius: '8px 8px 0 0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
-        />
+        >
+          {frameLabel === 'dot' && (
+            <div style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: '#FFF8E7',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
+            }} />
+          )}
+          {frameLabel === '×10' && (
+            <div style={{
+              fontSize: 10,
+              fontWeight: '700',
+              color: '#FFF8E7',
+              textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+            }}>×10</div>
+          )}
+        </div>
 
         {/* Bottom frame bar */}
         <div
@@ -128,8 +150,34 @@ export function Soroban({
             height: framePadding,
             background: 'linear-gradient(180deg, #5D4632 0%, #4A3728 100%)',
             borderRadius: '0 0 8px 8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10,
           }}
-        />
+        >
+          {frameLabel === 'dot' && (
+            <div style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: '#FFF8E7',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
+              position: 'relative',
+              zIndex: 11,
+            }} />
+          )}
+          {frameLabel === '×10' && (
+            <div style={{
+              fontSize: 10,
+              fontWeight: '700',
+              color: '#FFF8E7',
+              textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+              position: 'relative',
+              zIndex: 11,
+            }}>×10</div>
+          )}
+        </div>
 
         {/* Rods container */}
         <div

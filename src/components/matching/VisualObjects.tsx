@@ -14,6 +14,7 @@ export function VisualObjects({ count, highlighted, dimmed = false, matched, sho
     if (count <= 3) return { cols: count, rows: 1 };
     if (count <= 6) return { cols: 3, rows: 2 };
     if (count <= 9) return { cols: 3, rows: 3 };
+    if (count <= 15) return { cols: 5, rows: 3 };
     return { cols: 4, rows: Math.ceil(count / 4) };
   };
 
