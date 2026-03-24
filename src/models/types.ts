@@ -42,6 +42,8 @@ export interface SorobanProps {
   sizeConfig?: SizeConfig;
   /** Label to show on frame ('dot' for ones place, '×10' for tens place) */
   frameLabel?: 'dot' | '×10';
+  /** Maximum value allowed (locks beads above this value) */
+  maxValue?: number;
 }
 
 // === GAME TYPES ===

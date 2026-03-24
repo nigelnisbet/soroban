@@ -20,6 +20,7 @@ export function Soroban({
   size = 'medium',
   sizeConfig: customSizeConfig,
   frameLabel,
+  maxValue,
 }: SorobanProps) {
   const [rods, setRods] = useState<RodState[]>(() =>
     numberToRodStates(initialValue, rodCount)
@@ -48,10 +49,21 @@ export function Soroban({
   }, [totalValue, onValueChange]);
 
   const handleRodStateChange = useCallback((rodIndex: number, newState: RodState) => {
-    setRods((currentRods) =>
-      currentRods.map((rod) => (rod.rodIndex === rodIndex ? newState : rod))
-    );
-  }, []);
+    setRods((currentRods) => {
+      const newRods = currentRods.map((rod) => (rod.rodIndex === rodIndex ? newState : rod));
+
+      // If maxValue is set, enforce it
+      if (maxValue !== undefined) {
+        const newValue = calculateSorobanValue(newRods);
+        if (newValue > maxValue) {
+          // Reject the change - return current state
+          return currentRods;
+        }
+      }
+
+      return newRods;
+    });
+  }, [maxValue]);
 
   // Calculate dimensions
   const rodWidth = sizeConfig.rodWidth;
@@ -199,6 +211,7 @@ export function Soroban({
               glowHighlight={highlightRods?.includes(rod.rodIndex)}
               size={size}
               sizeConfig={customSizeConfig}
+              maxValue={maxValue}
             />
           ))}
         </div>

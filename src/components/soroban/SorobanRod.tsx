@@ -12,6 +12,7 @@ interface SorobanRodProps {
   glowHighlight?: boolean;
   size: 'small' | 'medium' | 'large' | 'mobile';
   sizeConfig?: SizeConfig;
+  maxValue?: number;
 }
 
 export function SorobanRod({
@@ -23,6 +24,7 @@ export function SorobanRod({
   glowHighlight = false,
   size,
   sizeConfig: customSizeConfig,
+  maxValue,
 }: SorobanRodProps) {
   const sizeConfig = customSizeConfig || SIZES[size];
   const { beadSize, beadSpacing } = sizeConfig;
@@ -400,6 +402,7 @@ export function SorobanRod({
         highlighted={previewTouches.heaven || (highlighted && glowHighlight)}
         size={beadSize}
         positionY={heavenBeadY}
+        locked={maxValue !== undefined && maxValue < 5} // Heaven bead represents 5
       />
 
       {/* Divider bar */}
@@ -420,6 +423,9 @@ export function SorobanRod({
       {/* Earth beads (0-3) */}
       {[0, 1, 2, 3].map((beadIndex) => {
         const isActive = beadIndex < state.earthBeadsActive;
+        // Each earth bead represents value 1, 2, 3, 4
+        const beadValue = beadIndex + 1;
+        const isLocked = maxValue !== undefined && beadValue > maxValue;
         return (
           <Bead
             key={beadIndex}
@@ -429,6 +435,7 @@ export function SorobanRod({
             highlighted={previewTouches.earthBeads?.has(beadIndex) || (highlighted && glowHighlight)}
             size={beadSize}
             positionY={getEarthBeadY(beadIndex, isActive)}
+            locked={isLocked}
           />
         );
       })}

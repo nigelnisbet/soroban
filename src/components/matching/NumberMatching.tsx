@@ -5,17 +5,20 @@ import { Soroban } from '../soroban/Soroban';
 import { VisualObjects } from './VisualObjects';
 import { JiJiCharacter } from './JiJiCharacter';
 import { NumberMatchingFeedback } from './NumberMatchingFeedback';
+import { NumberMatchingFeedbackTwo } from './NumberMatchingFeedbackTwo';
 import { sounds } from '../../utils/sounds';
 
 interface NumberMatchingProps {
   onBack: () => void;
 }
 
-const VERSION = 'v1.0.2';
+const VERSION = 'v1.1.0-progressive';
 
 export function NumberMatching({ onBack }: NumberMatchingProps) {
   const [targetNumber, setTargetNumber] = useState(5);
   const [sorobanValue, setSorobanValue] = useState(0);
+  const [onesValue, setOnesValue] = useState(0);
+  const [tensValue, setTensValue] = useState(0);
   const [resetKey, setResetKey] = useState(0);
   const [score, setScore] = useState(0);
   const [problemNumber, setProblemNumber] = useState(1);
@@ -32,9 +35,13 @@ export function NumberMatching({ onBack }: NumberMatchingProps) {
   const [sorobanRect, setSorobanRect] = useState<DOMRect | null>(null);
   const [objectsRect, setObjectsRect] = useState<DOMRect | null>(null);
 
-  // Track current soroban state for feedback
+  // Track current soroban state for feedback (both single and two-digit)
   const [currentHeavenBead, setCurrentHeavenBead] = useState(false);
   const [currentEarthBeads, setCurrentEarthBeads] = useState(0);
+  const [currentTensHeavenBead, setCurrentTensHeavenBead] = useState(false);
+  const [currentTensEarthBeads, setCurrentTensEarthBeads] = useState(0);
+  const [currentOnesHeavenBead, setCurrentOnesHeavenBead] = useState(false);
+  const [currentOnesEarthBeads, setCurrentOnesEarthBeads] = useState(0);
 
   // Glow effect for teaching interactivity
   const [showSorobanGlow, setShowSorobanGlow] = useState(false);
@@ -42,13 +49,18 @@ export function NumberMatching({ onBack }: NumberMatchingProps) {
   // Red glow for blocking obstacles
   const [showBlockingGlow, setShowBlockingGlow] = useState(false);
 
+  // Determine if we're using two sorobans (unlocked at 15 stars)
+  const useTwoSorobans = score >= 15;
+
   useEffect(() => {
     console.log(`🎯 NumberMatching ${VERSION} loaded`);
   }, []);
 
   // Generate new problem
   const generateProblem = () => {
-    const newNumber = Math.floor(Math.random() * 9) + 1;
+    const newNumber = useTwoSorobans
+      ? Math.floor(Math.random() * 13) + 3 // 3-15 for two-digit mode
+      : Math.floor(Math.random() * 9) + 1;  // 1-9 for single-digit mode
     setTargetNumber(newNumber);
     setResetKey((prev) => prev + 1);
     setShowingFeedback(false);
@@ -80,14 +92,30 @@ export function NumberMatching({ onBack }: NumberMatchingProps) {
     // Haptic feedback
     Haptics.impact({ style: ImpactStyle.Medium });
 
-    // Capture current soroban state
-    const heavenBead = sorobanValue >= 5;
-    const earthBeads = sorobanValue >= 5 ? sorobanValue - 5 : sorobanValue;
+    if (useTwoSorobans) {
+      // Two-soroban mode: capture both sorobans' states
+      const totalValue = onesValue + tensValue * 10;
+      const tensHeaven = tensValue >= 5;
+      const tensEarth = tensValue >= 5 ? tensValue - 5 : tensValue;
+      const onesHeaven = onesValue >= 5;
+      const onesEarth = onesValue >= 5 ? onesValue - 5 : onesValue;
 
-    console.log(`🎯 handleGo: sorobanValue=${sorobanValue}, heavenBead=${heavenBead}, earthBeads=${earthBeads}`);
+      console.log(`🎯 handleGo (two-soroban): tens=${tensValue} (H:${tensHeaven}, E:${tensEarth}), ones=${onesValue} (H:${onesHeaven}, E:${onesEarth}), total=${totalValue}`);
 
-    setCurrentHeavenBead(heavenBead);
-    setCurrentEarthBeads(earthBeads);
+      setCurrentTensHeavenBead(tensHeaven);
+      setCurrentTensEarthBeads(tensEarth);
+      setCurrentOnesHeavenBead(onesHeaven);
+      setCurrentOnesEarthBeads(onesEarth);
+    } else {
+      // Single-soroban mode: capture single soroban state
+      const heavenBead = sorobanValue >= 5;
+      const earthBeads = sorobanValue >= 5 ? sorobanValue - 5 : sorobanValue;
+
+      console.log(`🎯 handleGo (single-soroban): sorobanValue=${sorobanValue}, heavenBead=${heavenBead}, earthBeads=${earthBeads}`);
+
+      setCurrentHeavenBead(heavenBead);
+      setCurrentEarthBeads(earthBeads);
+    }
 
     // Get fresh rects
     if (sorobanRef.current) {
@@ -151,6 +179,17 @@ export function NumberMatching({ onBack }: NumberMatchingProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Regenerate problem when crossing 15-star threshold
+  useEffect(() => {
+    if (score === 15) {
+      console.log('🎉 Unlocked two-soroban mode!');
+      setTimeout(() => {
+        generateProblem();
+      }, 1000);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [score]);
+
   return (
     <div
       onClick={handleNonInteractiveClick}
@@ -171,24 +210,41 @@ export function NumberMatching({ onBack }: NumberMatchingProps) {
         show={showJiJi}
         isFlying={jijiFlying}
         targetNumber={targetNumber}
-        sorobanValue={sorobanValue}
+        sorobanValue={useTwoSorobans ? onesValue + tensValue * 10 : sorobanValue}
         objectsContainerRect={objectsRect}
         onBlocked={handleJiJiBlocked}
       />
 
-      {/* Formative Feedback Animation */}
-      <NumberMatchingFeedback
-        isActive={showingFeedback}
-        targetCount={targetNumber}
-        heavenBeadActive={currentHeavenBead}
-        earthBeadsActive={currentEarthBeads}
-        sorobanRect={sorobanRect}
-        objectsContainerRect={objectsRect}
-        onComplete={handleFeedbackComplete}
-        onShowJiJi={handleShowJiJi}
-        onObjectMatched={handleObjectMatched}
-        showBlockingGlow={showBlockingGlow}
-      />
+      {/* Formative Feedback Animation - conditional based on mode */}
+      {useTwoSorobans ? (
+        <NumberMatchingFeedbackTwo
+          isActive={showingFeedback}
+          targetCount={targetNumber}
+          tensHeavenBeadActive={currentTensHeavenBead}
+          tensEarthBeadsActive={currentTensEarthBeads}
+          onesHeavenBeadActive={currentOnesHeavenBead}
+          onesEarthBeadsActive={currentOnesEarthBeads}
+          sorobanRect={sorobanRect}
+          objectsContainerRect={objectsRect}
+          onComplete={handleFeedbackComplete}
+          onShowJiJi={handleShowJiJi}
+          onObjectMatched={handleObjectMatched}
+          showBlockingGlow={showBlockingGlow}
+        />
+      ) : (
+        <NumberMatchingFeedback
+          isActive={showingFeedback}
+          targetCount={targetNumber}
+          heavenBeadActive={currentHeavenBead}
+          earthBeadsActive={currentEarthBeads}
+          sorobanRect={sorobanRect}
+          objectsContainerRect={objectsRect}
+          onComplete={handleFeedbackComplete}
+          onShowJiJi={handleShowJiJi}
+          onObjectMatched={handleObjectMatched}
+          showBlockingGlow={showBlockingGlow}
+        />
+      )}
 
       {/* Header */}
       <div
@@ -254,14 +310,15 @@ export function NumberMatching({ onBack }: NumberMatchingProps) {
         <VisualObjects count={targetNumber} matched={matchedObjects} showBlockingGlow={showBlockingGlow} />
       </div>
 
-      {/* Soroban area */}
+      {/* Soroban area - conditional single or two sorobans */}
       <div
         ref={sorobanRef}
         style={{
           display: 'flex',
-          flexDirection: 'column',
+          flexDirection: useTwoSorobans ? 'row' : 'column',
           alignItems: 'center',
-          gap: 16,
+          justifyContent: 'center',
+          gap: useTwoSorobans ? 0 : 16,
           padding: '0 20px',
           flexShrink: 0,
           userSelect: 'none',
@@ -274,22 +331,65 @@ export function NumberMatching({ onBack }: NumberMatchingProps) {
             : 'none',
         }}
       >
-        <div onClick={(e) => e.stopPropagation()}>
-          <Soroban
-            key={resetKey}
-            rodCount={1}
-            initialValue={0}
-            onValueChange={setSorobanValue}
-            disabled={showingFeedback}
-            sizeConfig={{
-              beadSize: 42,
-              beadSpacing: 7,
-              rodWidth: 60,
-              framepadding: 14,
-            }}
-            showValue={false}
-          />
-        </div>
+        {useTwoSorobans ? (
+          <>
+            {/* Tens place soroban (left) with ×10 label - limited to 1 earth bead */}
+            <div onClick={(e) => e.stopPropagation()}>
+              <Soroban
+                key={`tens-${resetKey}`}
+                rodCount={1}
+                initialValue={0}
+                onValueChange={setTensValue}
+                disabled={showingFeedback}
+                maxValue={1}
+                sizeConfig={{
+                  beadSize: 42,
+                  beadSpacing: 7,
+                  rodWidth: 60,
+                  framepadding: 14,
+                }}
+                showValue={false}
+                frameLabel="×10"
+              />
+            </div>
+
+            {/* Ones place soroban (right) with dot */}
+            <div onClick={(e) => e.stopPropagation()}>
+              <Soroban
+                key={`ones-${resetKey}`}
+                rodCount={1}
+                initialValue={0}
+                onValueChange={setOnesValue}
+                disabled={showingFeedback}
+                sizeConfig={{
+                  beadSize: 42,
+                  beadSpacing: 7,
+                  rodWidth: 60,
+                  framepadding: 14,
+                }}
+                showValue={false}
+                frameLabel="dot"
+              />
+            </div>
+          </>
+        ) : (
+          <div onClick={(e) => e.stopPropagation()}>
+            <Soroban
+              key={resetKey}
+              rodCount={1}
+              initialValue={0}
+              onValueChange={setSorobanValue}
+              disabled={showingFeedback}
+              sizeConfig={{
+                beadSize: 42,
+                beadSpacing: 7,
+                rodWidth: 60,
+                framepadding: 14,
+              }}
+              showValue={false}
+            />
+          </div>
+        )}
       </div>
 
       {/* Bottom control bar */}
@@ -305,23 +405,23 @@ export function NumberMatching({ onBack }: NumberMatchingProps) {
         {/* GO button */}
         <motion.button
           onClick={handleGo}
-          disabled={showingFeedback || sorobanValue === 0}
+          disabled={showingFeedback || (useTwoSorobans ? (onesValue + tensValue * 10) === 0 : sorobanValue === 0)}
           style={{
             flex: 7,
             height: 56,
             borderRadius: 12,
-            background: (showingFeedback || sorobanValue === 0)
+            background: (showingFeedback || (useTwoSorobans ? (onesValue + tensValue * 10) === 0 : sorobanValue === 0))
               ? '#BDBDBD'
               : 'linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%)',
             color: 'white',
             border: 'none',
             fontSize: 20,
             fontWeight: 'bold',
-            cursor: (showingFeedback || sorobanValue === 0) ? 'not-allowed' : 'pointer',
-            boxShadow: (showingFeedback || sorobanValue === 0) ? 'none' : '0 4px 12px rgba(76,175,80,0.4)',
+            cursor: (showingFeedback || (useTwoSorobans ? (onesValue + tensValue * 10) === 0 : sorobanValue === 0)) ? 'not-allowed' : 'pointer',
+            boxShadow: (showingFeedback || (useTwoSorobans ? (onesValue + tensValue * 10) === 0 : sorobanValue === 0)) ? 'none' : '0 4px 12px rgba(76,175,80,0.4)',
           }}
-          whileHover={(showingFeedback || sorobanValue === 0) ? {} : { scale: 1.02 }}
-          whileTap={(showingFeedback || sorobanValue === 0) ? {} : { scale: 0.98 }}
+          whileHover={(showingFeedback || (useTwoSorobans ? (onesValue + tensValue * 10) === 0 : sorobanValue === 0)) ? {} : { scale: 1.02 }}
+          whileTap={(showingFeedback || (useTwoSorobans ? (onesValue + tensValue * 10) === 0 : sorobanValue === 0)) ? {} : { scale: 0.98 }}
         >
           GO ➤
         </motion.button>

@@ -51,9 +51,9 @@ export function NumberMatchingTwo({ onBack }: NumberMatchingProps) {
     console.log(`🎯 NumberMatchingTwo ${VERSION} loaded`);
   }, []);
 
-  // Generate new problem (10-15 objects)
+  // Generate new problem (3-15 objects for full range)
   const generateProblem = () => {
-    const newNumber = Math.floor(Math.random() * 6) + 10; // 10-15
+    const newNumber = Math.floor(Math.random() * 13) + 3; // 3-15
     setTargetNumber(newNumber);
     setResetKey((prev) => prev + 1);
     setShowingFeedback(false);
@@ -286,7 +286,7 @@ export function NumberMatchingTwo({ onBack }: NumberMatchingProps) {
             : 'none',
         }}
       >
-        {/* Tens place soroban (left) with ×10 label on frame */}
+        {/* Tens place soroban (left) with ×10 label on frame - limited to 1 earth bead */}
         <div onClick={(e) => e.stopPropagation()}>
           <Soroban
             key={`tens-${resetKey}`}
@@ -294,6 +294,7 @@ export function NumberMatchingTwo({ onBack }: NumberMatchingProps) {
             initialValue={0}
             onValueChange={setTensValue}
             disabled={showingFeedback}
+            maxValue={1}
             sizeConfig={{
               beadSize: 42,
               beadSpacing: 7,

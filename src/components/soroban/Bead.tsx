@@ -7,6 +7,7 @@ interface BeadProps {
   highlighted?: boolean;
   size: number;
   positionY: number;
+  locked?: boolean; // Bead is locked and cannot be activated
 }
 
 export function Bead({
@@ -16,6 +17,7 @@ export function Bead({
   highlighted = false,
   size,
   positionY,
+  locked = false,
 }: BeadProps) {
 
   // Kite-shaped beads like real soroban - wider horizontally than vertically
@@ -42,6 +44,7 @@ export function Bead({
         WebkitUserSelect: 'none',
         zIndex: type === 'heaven' ? 10 : 5,
         pointerEvents: 'none', // Let rod handle all touch events
+        opacity: locked ? 0.3 : 1, // Dim locked beads
       }}
       initial={false}
       animate={{
@@ -129,6 +132,24 @@ export function Bead({
             </radialGradient>
           </defs>
         </svg>
+
+        {/* Lock icon for locked beads */}
+        {locked && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              fontSize: size * 0.35,
+              color: '#000',
+              textShadow: '0 1px 2px rgba(255,255,255,0.5)',
+              pointerEvents: 'none',
+            }}
+          >
+            🔒
+          </div>
+        )}
       </div>
     </motion.div>
   );
