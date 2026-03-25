@@ -14,9 +14,6 @@ interface NumberMatchingProps {
 
 const VERSION = 'v1.1.0-progressive';
 
-// DEV: Set to 10 to start with two-soroban mode for testing
-const DEV_START_SCORE = 10;
-
 export function NumberMatching({ onBack }: NumberMatchingProps) {
   const [targetNumber, setTargetNumber] = useState(5);
   const [previousNumber, setPreviousNumber] = useState<number | null>(null);
@@ -24,7 +21,7 @@ export function NumberMatching({ onBack }: NumberMatchingProps) {
   const [onesValue, setOnesValue] = useState(0);
   const [tensValue, setTensValue] = useState(0);
   const [resetKey, setResetKey] = useState(0);
-  const [score, setScore] = useState(DEV_START_SCORE);
+  const [score, setScore] = useState(0);
   const [problemNumber, setProblemNumber] = useState(1);
 
   // Feedback state
