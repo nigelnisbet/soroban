@@ -37,6 +37,7 @@ export function SimpleAddition({ onBack }: SimpleAdditionProps) {
   const [currentProblem, setCurrentProblem] = useState(() => generateProblem());
   const targetAddend = currentProblem.firstAddend;
   const secondAddend = currentProblem.secondAddend;
+
   const [flyingParticles, setFlyingParticles] = useState<Array<{ id: number; startX: number; startY: number; targetX: number; targetY: number }>>([]);
   const problemAreaRef = useRef<HTMLDivElement>(null);
   const bottomBoxRef = useRef<HTMLDivElement>(null);
@@ -51,6 +52,7 @@ export function SimpleAddition({ onBack }: SimpleAdditionProps) {
   const [finalVerificationResult, setFinalVerificationResult] = useState<'correct' | 'incorrect' | null>(null);
   const [flyingAddendObjects, setFlyingAddendObjects] = useState<Array<{ id: number; fromAddend: 1 | 2; index: number; startX: number; startY: number }>>([]);
   const [shouldTriggerComparison, setShouldTriggerComparison] = useState(false);
+  const jijiAnimationCompleteRef = useRef(false);
   const topBoxRef = useRef<HTMLDivElement>(null);
   const addend1Ref = useRef<HTMLDivElement>(null);
   const addend2Ref = useRef<HTMLDivElement>(null);
@@ -169,6 +171,7 @@ export function SimpleAddition({ onBack }: SimpleAdditionProps) {
         if (isCorrect) {
           // Success: flash green, fade everything, JiJi flies
           setTimeout(() => {
+            jijiAnimationCompleteRef.current = false; // Reset for new JiJi
             setShowJiJi(true);
           }, 1200);
         } else {
@@ -238,6 +241,9 @@ export function SimpleAddition({ onBack }: SimpleAdditionProps) {
   };
 
   const handleGo = () => {
+    // Prevent double-clicks or clicks during animation
+    if (isAnimating || isVerifying) return;
+
     setIsAnimating(true);
 
     const rod = rodStates[0]; // Single rod
@@ -344,7 +350,6 @@ export function SimpleAddition({ onBack }: SimpleAdditionProps) {
           setShowHeavenFan(false);
           setHeavenFanFlashIndex(-1);
           setIsAnimating(false);
-          console.log('Animation complete, starting verification');
 
           // Start verification
           setIsVerifying(true);
@@ -352,7 +357,6 @@ export function SimpleAddition({ onBack }: SimpleAdditionProps) {
           // Wait 500ms, then check if correct
           setTimeout(() => {
             const isCorrect = sorobanValue === targetAddend;
-            console.log(`Verification: soroban=${sorobanValue}, target=${targetAddend}, correct=${isCorrect}`);
             setVerificationResult(isCorrect ? 'correct' : 'incorrect');
 
             if (!isCorrect) {
@@ -373,7 +377,6 @@ export function SimpleAddition({ onBack }: SimpleAdditionProps) {
       }
 
       currentBead++;
-      console.log('Flashing bead', currentBead, 'of', totalBeads);
 
       // Check if we need to handle heaven bead
       if (rod.heavenBeadActive && currentBead <= 5) {
@@ -476,6 +479,7 @@ export function SimpleAddition({ onBack }: SimpleAdditionProps) {
     setIsComparingFinal(false);
     setFinalVerificationResult(null);
     setShouldTriggerComparison(false);
+    // Don't reset jijiAnimationCompleteRef here - it stays true until next JiJi shows
 
     // Only generate new problem if explicitly requested (on success)
     if (loadNewProblem) {
@@ -489,6 +493,14 @@ export function SimpleAddition({ onBack }: SimpleAdditionProps) {
   };
 
   const handleJiJiAnimationComplete = () => {
+    // Prevent multiple calls from the same JiJi animation
+    if (!showJiJi || jijiAnimationCompleteRef.current) {
+      return;
+    }
+
+    // Set flag IMMEDIATELY to block any concurrent calls
+    jijiAnimationCompleteRef.current = true;
+
     // Reset and load next problem after JiJi animation
     if (verificationResult === 'incorrect' || finalVerificationResult === 'incorrect') {
       // Incorrect: wait a bit then reset SAME problem
