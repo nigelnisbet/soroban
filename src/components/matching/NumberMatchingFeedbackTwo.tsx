@@ -1,10 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { SIZES } from '../../models/types';
 import { sounds } from '../../utils/sounds';
-
-const VERSION = 'v1.0.0-two-digit';
 
 type AnimationPhase =
   | 'IDLE'
@@ -27,7 +24,7 @@ interface BeadPosition {
 
 interface NumberMatchingFeedbackTwoProps {
   isActive: boolean;
-  targetCount: number;         // Number of objects to match (10-15)
+  targetCount: number;         // Number of objects to match (3-18)
   // Tens place soroban state
   tensHeavenBeadActive: boolean;
   tensEarthBeadsActive: number;
@@ -277,6 +274,8 @@ export function NumberMatchingFeedbackTwo({
   const [objectPositions, setObjectPositions] = useState<{x: number; y: number}[]>([]);
   const [flashPositions, setFlashPositions] = useState<{x: number; y: number; delay: number}[]>([]);
   const [blockingBeads, setBlockingBeads] = useState<{x: number; y: number}[]>([]);
+  const [tensRodCenterX, setTensRodCenterX] = useState<number>(0);
+  const [frameLabelCenterY, setFrameLabelCenterY] = useState<number>(0);
   const hasCompletedRef = useRef(false);
 
   const totalBeads =
@@ -284,11 +283,52 @@ export function NumberMatchingFeedbackTwo({
     (onesHeavenBeadActive ? 5 : 0) + onesEarthBeadsActive;
 
   useEffect(() => {
-    console.log(`🎨 NumberMatchingFeedbackTwo ${VERSION} loaded`);
-    console.log(`   Tens: H=${tensHeavenBeadActive}, E=${tensEarthBeadsActive}`);
-    console.log(`   Ones: H=${onesHeavenBeadActive}, E=${onesEarthBeadsActive}`);
-    console.log(`   Total value: ${totalBeads}`);
+    // Component loaded
   }, []);
+
+  // Calculate tens rod center X and frame label Y whenever sorobanRect changes (for debug lines)
+  useEffect(() => {
+    if (!sorobanRect) return;
+
+    const beadSize = 42;
+    const beadSpacing = 7;
+    const framePadding = 14;
+    const rodWidth = 60;
+    const borderWidth = 4;
+
+    const singleSorobanWidth = rodWidth + framePadding * 2 + borderWidth * 2;
+    const totalSorobanWidth = singleSorobanWidth * 2;
+    const sorobansStartX = sorobanRect.left + (sorobanRect.width - totalSorobanWidth) / 2;
+    const calculatedTensRodCenterX = sorobansStartX + borderWidth + framePadding + rodWidth / 2 + borderWidth;
+
+    // Query the PARENT div of the bottom ×10 label (the frame bar with height=14)
+    const labelElements = document.querySelectorAll('[style*="font-size: 10px"][style*="font-weight: 700"]');
+    const labelPositions: { y: number; parentY: number }[] = [];
+
+    // Find all ×10 labels and their parent divs
+    for (const el of Array.from(labelElements)) {
+      if (el.textContent?.includes('×10')) {
+        const rect = el.getBoundingClientRect();
+        const centerY = rect.top + rect.height / 2;
+
+        // Get parent div center
+        const parent = el.parentElement;
+        const parentRect = parent?.getBoundingClientRect();
+        const parentCenterY = parentRect ? parentRect.top + parentRect.height / 2 : centerY;
+
+        labelPositions.push({ y: centerY, parentY: parentCenterY });
+      }
+    }
+
+    // The BOTTOM one has the highest Y value - use the parent's center
+    const bottomLabel = labelPositions.length > 0
+      ? labelPositions.reduce((max, curr) => curr.parentY > max.parentY ? curr : max)
+      : { parentY: 0 };
+    const actualLabelY = bottomLabel.parentY;
+
+    setTensRodCenterX(calculatedTensRodCenterX);
+    setFrameLabelCenterY(actualLabelY);
+  }, [sorobanRect]);
 
   // Calculate positions when activated
   useEffect(() => {
@@ -297,61 +337,18 @@ export function NumberMatchingFeedbackTwo({
       return;
     }
 
-    console.log('🎯 Starting TWO-DIGIT feedback animation');
-    console.log(`   Target: ${targetCount} objects`);
-    console.log(`   Tens place: ${tensEarthBeadsActive} earth beads (${tensEarthBeadsActive * 10})`);
-    console.log(`   Ones place: ${onesEarthBeadsActive} earth beads + ${onesHeavenBeadActive ? 'heaven' : 'no heaven'}`);
-
-    // DEBUG: Capture actual bead positions AND container positions from DOM
-    // Find both soroban containers
-    const sorobanContainers = document.querySelectorAll('[style*="flex-direction: row-reverse"]');
-    if (sorobanContainers.length >= 2) {
-      console.log(`   🔍 Found ${sorobanContainers.length} soroban containers`);
-
-      // Check container positions
-      const tensContainer = sorobanContainers[0] as HTMLElement;
-      const onesContainer = sorobanContainers[1] as HTMLElement;
-      const tensRect = tensContainer.getBoundingClientRect();
-      const onesRect = onesContainer.getBoundingClientRect();
-      console.log(`   📦 TENS container: left=${tensRect.left.toFixed(1)}, width=${tensRect.width.toFixed(1)}, center=${(tensRect.left + tensRect.width/2).toFixed(1)}`);
-      console.log(`   📦 ONES container: left=${onesRect.left.toFixed(1)}, width=${onesRect.width.toFixed(1)}, center=${(onesRect.left + onesRect.width/2).toFixed(1)}`);
-
-      // Tens place (left/first soroban)
-      if (tensEarthBeadsActive > 0) {
-        const tensBeads = sorobanContainers[0].querySelectorAll('path[fill*="bead-grad-earth-true"]');
-        console.log(`   🔍 TENS: Found ${tensBeads.length} active earth beads`);
-        tensBeads.forEach((beadEl, idx) => {
-          const rect = beadEl.getBoundingClientRect();
-          const centerX = rect.left + rect.width / 2;
-          const centerY = rect.top + rect.height / 2;
-          console.log(`   🎯 TENS DOM bead ${idx}: x=${centerX.toFixed(1)}, y=${centerY.toFixed(1)}`);
-        });
-      }
-
-      // Ones place (right/second soroban)
-      if (onesEarthBeadsActive > 0) {
-        const onesBeads = sorobanContainers[1].querySelectorAll('path[fill*="bead-grad-earth-true"]');
-        console.log(`   🔍 ONES: Found ${onesBeads.length} active earth beads`);
-        onesBeads.forEach((beadEl, idx) => {
-          const rect = beadEl.getBoundingClientRect();
-          const centerX = rect.left + rect.width / 2;
-          const centerY = rect.top + rect.height / 2;
-          console.log(`   🎯 ONES DOM bead ${idx}: x=${centerX.toFixed(1)}, y=${centerY.toFixed(1)}`);
-        });
-      }
-    }
-
     // Calculate object positions (grid layout) - MUST match VisualObjects.tsx
     const getGridLayout = (count: number) => {
       if (count <= 3) return { cols: count, rows: 1 };
       if (count <= 6) return { cols: 3, rows: 2 };
       if (count <= 9) return { cols: 3, rows: 3 };
-      if (count <= 15) return { cols: 5, rows: 3 };
+      // For 10-18, always use 6 columns (two-soroban range)
+      if (count <= 18) return { cols: 6, rows: Math.ceil(count / 6) };
       return { cols: 4, rows: Math.ceil(count / 4) };
     };
 
     const { cols, rows } = getGridLayout(targetCount);
-    const objectSize = 60;
+    const objectSize = 50;
     const gap = 16;
     const padding = 20; // Container padding
     const paddingBottom = 40; // Extra bottom padding from parent
@@ -394,7 +391,6 @@ export function NumberMatchingFeedbackTwo({
     // Calculate center X for BOTH sorobans (they're side by side, no gap)
     const singleSorobanWidth = rodWidth + framePadding * 2 + borderWidth * 2;
     const totalSorobanWidth = singleSorobanWidth * 2; // Two sorobans side by side
-    console.log(`   Single soroban width: ${singleSorobanWidth}, total two-soroban width: ${totalSorobanWidth}`);
 
     // The sorobans are centered in the container, so calculate where they actually start
     const sorobansStartX = sorobanRect.left + (sorobanRect.width - totalSorobanWidth) / 2;
@@ -402,15 +398,12 @@ export function NumberMatchingFeedbackTwo({
     // Now calculate rod centers relative to where the sorobans actually are
     // For each soroban: start + border + padding + half rod width = rod center
     // Tens place: sorobansStartX + border + padding + rodWidth/2 + borderWidth (empirical correction)
-    const tensRodCenterX = sorobansStartX + borderWidth + framePadding + rodWidth / 2 + borderWidth;
+    const calculatedTensRodCenterX = sorobansStartX + borderWidth + framePadding + rodWidth / 2 + borderWidth;
     // Ones place: starts after full first soroban width, same base calculation
     const onesRodCenterX = sorobansStartX + singleSorobanWidth + borderWidth + framePadding + rodWidth / 2 - borderWidth;
 
-    console.log(`   Soroban rect: top=${sorobanRect.top.toFixed(1)}, left=${sorobanRect.left.toFixed(1)}, width=${sorobanRect.width.toFixed(1)}`);
-    console.log(`   Content top: ${contentTop.toFixed(1)}, earthSectionStart=${earthSectionStart}`);
-    console.log(`   sorobansStartX=${sorobansStartX.toFixed(1)}, singleSorobanWidth=${singleSorobanWidth}`);
-    console.log(`   borderWidth=${borderWidth}, framePadding=${framePadding}, rodWidth=${rodWidth}`);
-    console.log(`   Calculated rod centers: tens=${tensRodCenterX.toFixed(1)}, ones=${onesRodCenterX.toFixed(1)}`);
+    setTensRodCenterX(calculatedTensRodCenterX);
+
 
     const beads: BeadPosition[] = [];
     const actualEarthBeadHeight = beadSize * 1.0;
@@ -419,9 +412,8 @@ export function NumberMatchingFeedbackTwo({
     // Calculate TENS place earth bead positions (these will become 10 beads each)
     for (let i = 0; i < tensEarthBeadsActive; i++) {
       const positionY = earthSectionStart + beadSpacing * 1.5 + i * (actualEarthBeadHeight + stackSpacing);
-      const beadX = tensRodCenterX;
+      const beadX = calculatedTensRodCenterX;
       const beadY = contentTop + positionY + actualEarthBeadHeight / 2;
-      console.log(`   📍 TENS earth bead ${i}: calculated x=${beadX.toFixed(1)}, y=${beadY.toFixed(1)}`);
       beads.push({
         id: `tens-earth-${i}`,
         x: beadX,
@@ -436,7 +428,6 @@ export function NumberMatchingFeedbackTwo({
       const positionY = earthSectionStart + beadSpacing * 1.5 + i * (actualEarthBeadHeight + stackSpacing);
       const beadX = onesRodCenterX;
       const beadY = contentTop + positionY + actualEarthBeadHeight / 2;
-      console.log(`   📍 ONES earth bead ${i}: calculated x=${beadX.toFixed(1)}, y=${beadY.toFixed(1)}`);
       beads.push({
         id: `ones-earth-${i}`,
         x: beadX,
@@ -456,7 +447,6 @@ export function NumberMatchingFeedbackTwo({
       });
     }
 
-    console.log(`   Calculated ${beads.length} initial bead positions`);
 
     setAllBeadPositions(beads);
     setMatchedCount(0);
@@ -466,24 +456,19 @@ export function NumberMatchingFeedbackTwo({
     hasCompletedRef.current = false;
 
     // Start animation sequence
-    console.log('📍 Starting phase: FADING_SOROBAN');
     setPhase('FADING_SOROBAN');
 
     setTimeout(() => {
       // Decide what to do first based on what's active
       if (tensEarthBeadsActive > 0) {
-        console.log('📍 Phase: LABELING_TENS - Show ×10 on tens earth beads');
         setPhase('LABELING_TENS');
 
         setTimeout(() => {
-          console.log('📍 Phase: SPLITTING_TENS_EARTH - Double fan animation');
           setPhase('SPLITTING_TENS_EARTH');
         }, 800);
       } else if (onesHeavenBeadActive) {
-        console.log('📍 Phase: SPLITTING_ONES_HEAVEN - Regular 5-bead fan');
         setPhase('SPLITTING_ONES_HEAVEN');
       } else {
-        console.log('📍 Phase: MATCHING_ONES - Direct to matching ones earth beads');
         setPhase('MATCHING_ONES');
       }
     }, 800);
@@ -492,7 +477,6 @@ export function NumberMatchingFeedbackTwo({
 
   // Handle TENS earth bead split into 10 beads (double fan: 5 above, 5 below)
   const handleTensEarthSplitComplete = useCallback((beadPosition: {x: number; y: number}) => {
-    console.log('🔟 Tens earth bead split complete! Creating 10 earth beads in double fan (5 up, 5 down)');
 
     const lineLength = 90;
     // 10 beads: 5 upward fan (like heaven bead), 5 downward fan (mirrored)
@@ -531,12 +515,10 @@ export function NumberMatchingFeedbackTwo({
       });
     }
 
-    console.log(`   Created ${spreadBeads.length} beads in double fan`);
     setSpawnedBeads(prev => [...prev, ...spreadBeads]);
 
     // After split, move to matching tens beads
     setTimeout(() => {
-      console.log('📍 Phase: MATCHING_TENS');
       setPhase('MATCHING_TENS');
     }, 100);
   }, []);
@@ -545,7 +527,6 @@ export function NumberMatchingFeedbackTwo({
   const handleOnesHeavenSplitComplete = useCallback(() => {
     if (!heavenBeadPosition) return;
 
-    console.log('🌟 Ones heaven bead split complete! Creating 5 earth beads');
 
     const lineLength = 90;
     const angles = [-60, -33, 0, 33, 60];
@@ -555,7 +536,6 @@ export function NumberMatchingFeedbackTwo({
       const angleRad = (angles[i] * Math.PI) / 180;
       const endX = Math.sin(angleRad) * lineLength;
       const endY = -Math.cos(angleRad) * lineLength;
-      console.log(`   Bead ${i}: angle=${angles[i]}°, endX=${endX.toFixed(1)}, endY=${endY.toFixed(1)}`);
       spreadBeads.push({
         id: `ones-heaven-${i}`,
         x: heavenBeadPosition.x + endX,
@@ -575,11 +555,9 @@ export function NumberMatchingFeedbackTwo({
     const tensBeadsCount = spawnedBeads.filter(b => b.isFromTens).length;
     const actualObjectIndex = phase === 'MATCHING_ONES' ? tensBeadsCount + matchedCount : matchedCount;
 
-    console.log(`💥 Bead arrived! ${phase} bead index ${matchedCount} → object index ${actualObjectIndex}`);
 
     // Notify parent that this object was matched (immediately) - only if there's an object to match
     if (actualObjectIndex < targetCount) {
-      console.log(`   ✅ Notifying parent: object ${actualObjectIndex} matched`);
       onObjectMatched(actualObjectIndex);
 
       // Haptic feedback for match
@@ -592,7 +570,6 @@ export function NumberMatchingFeedbackTwo({
       }
     } else {
       // Extra bead - add to blocking beads array in JiJi's path
-      console.log(`   ⚠️ Extra bead ${actualObjectIndex} (blocking JiJi)`);
       const extraBeadIndex = actualObjectIndex - targetCount;
       const totalExtraBeads = totalBeads - targetCount;
       // JiJi flies near top of objects area
@@ -616,24 +593,20 @@ export function NumberMatchingFeedbackTwo({
 
     setMatchedCount(prev => {
       const newCount = prev + 1;
-      console.log(`   📊 Matched count: ${prev} → ${newCount}`);
 
       // Check if we've finished matching tens beads and need to transition to ones
       const tensBeadsCount = spawnedBeads.filter(b => b.isFromTens).length;
 
       if (phase === 'MATCHING_TENS' && newCount >= tensBeadsCount) {
-        console.log(`   🔄 Finished matching ${tensBeadsCount} tens beads`);
         // Check if ones heaven bead needs to split first
         const onesEarthBeadsToMatch = allBeadPositions.filter(b => !b.isFromTens).length;
         const hasOnesHeaven = heavenBeadPosition !== null;
 
         if (hasOnesHeaven) {
-          console.log(`   → Transitioning to SPLITTING_ONES_HEAVEN`);
           setTimeout(() => {
             setPhase('SPLITTING_ONES_HEAVEN');
           }, 300);
         } else if (onesEarthBeadsToMatch > 0) {
-          console.log(`   → Transitioning to MATCHING_ONES`);
           setTimeout(() => {
             setMatchedCount(0); // Reset counter for ones phase
             setPhase('MATCHING_ONES');
@@ -759,38 +732,94 @@ export function NumberMatchingFeedbackTwo({
           />
         )}
 
-        {/* LABELING_TENS: Show ×10 label on tens earth beads */}
-        {phase === 'LABELING_TENS' && allBeadPositions.map((bead) => (
-          <div key={`labeled-${bead.id}`} style={{ position: 'relative' }}>
-            <StaticBead
-              x={bead.x}
-              y={bead.y}
-              beadSize={beadSize}
-              isHeaven={false}
-            />
-            {/* Show ×10 label on tens beads */}
-            {bead.isFromTens && (
+        {/* LABELING_TENS: ×10 rises from frame to bead */}
+        {phase === 'LABELING_TENS' && (() => {
+          if (!sorobanRect) return null;
+
+          // Use calculated positions from DOM query
+          const tensFrameX = tensRodCenterX;
+          const frameBottomY = frameLabelCenterY;
+
+          return (
+            <>
+              {/* Pulse the frame ×10 label */}
               <motion.div
-                initial={{ opacity: 0, scale: 0.5 }}
-                animate={{ opacity: 1, scale: 1 }}
+                animate={{
+                  scale: [1, 1.3, 1],
+                  opacity: [1, 0.7, 1]
+                }}
+                transition={{
+                  duration: 0.4,
+                  times: [0, 0.5, 1],
+                  repeat: 1
+                }}
                 style={{
                   position: 'fixed',
-                  left: bead.x,
-                  top: bead.y,
-                  transform: 'translate(-50%, -50%)',
-                  fontSize: 16,
-                  fontWeight: '900',
-                  color: '#2D1810',
-                  textShadow: '0 0 4px rgba(255,255,255,0.8), 0 0 8px rgba(255,255,255,0.6)',
-                  zIndex: 1001,
+                  left: tensFrameX,
+                  top: frameBottomY,
+                  fontSize: 10,
+                  fontWeight: '700',
+                  color: '#FFF8E7',
+                  textShadow: '0 1px 2px rgba(0,0,0,0.4), 0 0 8px rgba(255,255,255,0.8)',
+                  zIndex: 1002,
                   pointerEvents: 'none',
+                  marginLeft: '-5px', // Half of approximate text width to center
+                  marginTop: '-7px',  // Half of fontSize + some spacing
                 }}
               >
                 ×10
               </motion.div>
-            )}
-          </div>
-        ))}
+
+              {/* Rising ×10 labels */}
+              {allBeadPositions.map((bead) => (
+            <div key={`labeled-${bead.id}`} style={{ position: 'relative' }}>
+              <StaticBead
+                x={bead.x}
+                y={bead.y}
+                beadSize={beadSize}
+                isHeaven={false}
+              />
+              {/* Animated ×10 label rises from frame to bead (tens only) */}
+              {bead.isFromTens && (
+                <motion.div
+                  initial={{
+                    left: bead.x,
+                    top: frameBottomY,
+                    opacity: 0,
+                    scale: 0.8
+                  }}
+                  animate={{
+                    left: bead.x,
+                    top: bead.y + 30, // Below the bead
+                    opacity: 1,
+                    scale: [0.8, 1.2, 1.0] // Pulse on arrival
+                  }}
+                  transition={{
+                    duration: 0.5,
+                    scale: {
+                      times: [0, 0.8, 1],
+                      duration: 0.5
+                    }
+                  }}
+                  style={{
+                    position: 'fixed',
+                    transform: 'translate(-50%, -50%)',
+                    fontSize: 16,
+                    fontWeight: '900',
+                    color: '#2D1810',
+                    textShadow: '0 0 4px rgba(255,255,255,0.8), 0 0 8px rgba(255,255,255,0.6)',
+                    zIndex: 1001,
+                    pointerEvents: 'none',
+                  }}
+                >
+                  ×10
+                </motion.div>
+              )}
+            </div>
+          ))}
+            </>
+          );
+        })()}
 
         {/* Show heaven bead during LABELING_TENS if present */}
         {phase === 'LABELING_TENS' && heavenBeadPosition && (
@@ -1004,7 +1033,6 @@ export function NumberMatchingFeedbackTwo({
 
         {/* SPLITTING_TENS_EARTH: Double fan (5 above, 5 below) */}
         {phase === 'SPLITTING_TENS_EARTH' && allBeadPositions.filter(b => b.isFromTens).map((tensBead) => {
-          console.log(`🎬 Rendering tens split at position x=${tensBead.x}, y=${tensBead.y}`);
           const lineLength = 90;
           const beadWidth = beadSize * 1.6;
           const beadHeight = beadSize * 1.0;
@@ -1216,14 +1244,12 @@ export function NumberMatchingFeedbackTwo({
         {phase === 'MATCHING_TENS' && (() => {
           const bead = currentBeads[matchedCount];
           if (!bead || matchedCount >= currentBeads.length) {
-            console.log(`   ⚠️ No bead to animate: matchedCount=${matchedCount}, currentBeads.length=${currentBeads.length}`);
             return null;
           }
 
           // Tens beads map directly to object indices (0, 1, 2, ...)
           const objectIndex = matchedCount;
           const targetObj = objectPositions[objectIndex];
-          console.log(`   ✈️ Flying TENS bead ${matchedCount}: from (${bead.x.toFixed(0)}, ${bead.y.toFixed(0)}) to object ${objectIndex} at (${targetObj?.x.toFixed(0)}, ${targetObj?.y.toFixed(0)})`);
           if (targetObj) {
             return (
               <GhostBead
@@ -1297,7 +1323,6 @@ export function NumberMatchingFeedbackTwo({
         {phase === 'MATCHING_ONES' && (() => {
           const bead = currentBeads[matchedCount];
           if (!bead || matchedCount >= currentBeads.length) {
-            console.log(`   ⚠️ No ONES bead to animate: matchedCount=${matchedCount}, currentBeads.length=${currentBeads.length}`);
             return null;
           }
 
@@ -1305,7 +1330,6 @@ export function NumberMatchingFeedbackTwo({
           const tensBeadsCount = spawnedBeads.filter(b => b.isFromTens).length;
           const objectIndex = tensBeadsCount + matchedCount;
           const targetObj = objectPositions[objectIndex];
-          console.log(`   ✈️ Flying ONES bead ${matchedCount}: from (${bead.x.toFixed(0)}, ${bead.y.toFixed(0)}) to object ${objectIndex} at (${targetObj?.x.toFixed(0)}, ${targetObj?.y.toFixed(0)})`);
 
           if (targetObj) {
             return (

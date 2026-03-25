@@ -14,7 +14,8 @@ export function VisualObjects({ count, highlighted, dimmed = false, matched, sho
     if (count <= 3) return { cols: count, rows: 1 };
     if (count <= 6) return { cols: 3, rows: 2 };
     if (count <= 9) return { cols: 3, rows: 3 };
-    if (count <= 15) return { cols: 5, rows: 3 };
+    // For 10-18, always use 6 columns (two-soroban range)
+    if (count <= 18) return { cols: 6, rows: Math.ceil(count / 6) };
     return { cols: 4, rows: Math.ceil(count / 4) };
   };
 
@@ -53,8 +54,8 @@ export function VisualObjects({ count, highlighted, dimmed = false, matched, sho
               damping: 20,
             }}
             style={{
-              width: 60,
-              height: 60,
+              width: 50,
+              height: 50,
               borderRadius: '50%',
               background: isHighlighted
                 ? 'linear-gradient(135deg, #FF5722 0%, #E64A19 100%)'

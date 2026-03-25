@@ -88,9 +88,6 @@ export function SorobanRod({
       e.preventDefault();
 
       const rect = rod.getBoundingClientRect();
-      console.log(`🔵 TOUCH START on rod ${rodIndex}`);
-      console.log(`   Rod bounds: top=${rect.top.toFixed(1)}, height=${rect.height.toFixed(1)}`);
-      console.log(`   Current state: heaven=${state.heavenBeadActive}, earth=${state.earthBeadsActive}`);
 
       // Clear any previous highlights and pending toggles
       setPreviewTouches({});
@@ -186,7 +183,7 @@ export function SorobanRod({
     };
 
     const handleTouchEnd = (_e: TouchEvent) => {
-      console.log(`🔴 TOUCH END on rod ${rodIndex}`);
+      // console.log(`🔴 TOUCH END on rod ${rodIndex}`);
 
       // Clear timeout
       if (highlightTimeoutRef.current !== null) {
@@ -198,7 +195,6 @@ export function SorobanRod({
       let newState = { ...state };
 
       if (pendingToggles.current.heaven) {
-        console.log(`   Toggling heaven bead: ${state.heavenBeadActive} → ${!state.heavenBeadActive}`);
         newState.heavenBeadActive = !state.heavenBeadActive;
         Haptics.impact({ style: ImpactStyle.Medium });
       }
@@ -208,10 +204,8 @@ export function SorobanRod({
         const wasActive = toggledBead < state.earthBeadsActive;
 
         if (wasActive) {
-          console.log(`   Deactivating earth bead ${toggledBead}: earth count ${state.earthBeadsActive} → ${toggledBead}`);
           newState.earthBeadsActive = toggledBead;
         } else {
-          console.log(`   Activating earth bead ${toggledBead}: earth count ${state.earthBeadsActive} → ${toggledBead + 1}`);
           newState.earthBeadsActive = toggledBead + 1;
         }
         Haptics.impact({ style: ImpactStyle.Medium });
@@ -222,7 +216,6 @@ export function SorobanRod({
           newState.earthBeadsActive !== state.earthBeadsActive) {
         const oldValue = state.earthBeadsActive + (state.heavenBeadActive ? 5 : 0);
         const newValue = newState.earthBeadsActive + (newState.heavenBeadActive ? 5 : 0);
-        console.log(`   ✅ STATE CHANGED: value ${oldValue} → ${newValue}`);
         onStateChange(newState);
       } else {
         console.log(`   ⚠️ No state change (no toggles applied)`);
@@ -248,7 +241,7 @@ export function SorobanRod({
     const handleMouseDown = (e: MouseEvent) => {
       e.preventDefault();
       const rect = rod.getBoundingClientRect();
-      console.log(`🖱️ MOUSE DOWN on rod ${rodIndex}`);
+      // console.log(`🖱️ MOUSE DOWN on rod ${rodIndex}`);
 
       // Clear any previous state
       setPreviewTouches({});
@@ -259,7 +252,6 @@ export function SorobanRod({
 
       // Detect heaven bead
       if (relativeY >= 0 && relativeY < dividerY) {
-        console.log(`   → Detected HEAVEN bead`);
         newPreviews.heaven = true;
         pendingToggles.current.heaven = true;
         Haptics.impact({ style: ImpactStyle.Light });
@@ -282,7 +274,6 @@ export function SorobanRod({
         }
 
         if (touchedBead >= 0) {
-          console.log(`   → Detected EARTH bead ${touchedBead}`);
           const affectedBeads = new Set<number>();
           const isCurrentlyActive = touchedBead < state.earthBeadsActive;
 
@@ -306,13 +297,12 @@ export function SorobanRod({
     };
 
     const handleMouseUp = (_e: MouseEvent) => {
-      console.log(`🖱️ MOUSE UP on rod ${rodIndex}`);
+      // console.log(`🖱️ MOUSE UP on rod ${rodIndex}`);
 
       // Apply pending toggles
       let newState = { ...state };
 
       if (pendingToggles.current.heaven) {
-        console.log(`   Toggling heaven bead: ${state.heavenBeadActive} → ${!state.heavenBeadActive}`);
         newState.heavenBeadActive = !state.heavenBeadActive;
         Haptics.impact({ style: ImpactStyle.Medium });
       }
@@ -322,10 +312,8 @@ export function SorobanRod({
         const wasActive = toggledBead < state.earthBeadsActive;
 
         if (wasActive) {
-          console.log(`   Deactivating earth bead ${toggledBead}: earth count ${state.earthBeadsActive} → ${toggledBead}`);
           newState.earthBeadsActive = toggledBead;
         } else {
-          console.log(`   Activating earth bead ${toggledBead}: earth count ${state.earthBeadsActive} → ${toggledBead + 1}`);
           newState.earthBeadsActive = toggledBead + 1;
         }
         Haptics.impact({ style: ImpactStyle.Medium });
@@ -336,7 +324,6 @@ export function SorobanRod({
           newState.earthBeadsActive !== state.earthBeadsActive) {
         const oldValue = state.earthBeadsActive + (state.heavenBeadActive ? 5 : 0);
         const newValue = newState.earthBeadsActive + (newState.heavenBeadActive ? 5 : 0);
-        console.log(`   ✅ STATE CHANGED: value ${oldValue} → ${newValue}`);
         onStateChange(newState);
       }
 

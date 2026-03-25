@@ -15,7 +15,6 @@ function App() {
   const [completionTime, setCompletionTime] = useState(0);
 
   useEffect(() => {
-    console.log(`🚀 Soroban App ${APP_VERSION} loaded`);
   }, []);
 
   if (screen === 'menu') {

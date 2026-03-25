@@ -14,13 +14,17 @@ interface NumberMatchingProps {
 
 const VERSION = 'v1.1.0-progressive';
 
+// DEV: Set to 10 to start with two-soroban mode for testing
+const DEV_START_SCORE = 10;
+
 export function NumberMatching({ onBack }: NumberMatchingProps) {
   const [targetNumber, setTargetNumber] = useState(5);
+  const [previousNumber, setPreviousNumber] = useState<number | null>(null);
   const [sorobanValue, setSorobanValue] = useState(0);
   const [onesValue, setOnesValue] = useState(0);
   const [tensValue, setTensValue] = useState(0);
   const [resetKey, setResetKey] = useState(0);
-  const [score, setScore] = useState(0);
+  const [score, setScore] = useState(DEV_START_SCORE);
   const [problemNumber, setProblemNumber] = useState(1);
 
   // Feedback state
@@ -49,18 +53,56 @@ export function NumberMatching({ onBack }: NumberMatchingProps) {
   // Red glow for blocking obstacles
   const [showBlockingGlow, setShowBlockingGlow] = useState(false);
 
-  // Determine if we're using two sorobans (unlocked at 15 stars)
-  const useTwoSorobans = score >= 15;
+  // Determine if we're using two sorobans (unlocked at 10 stars)
+  const useTwoSorobans = score >= 10;
 
   useEffect(() => {
-    console.log(`🎯 NumberMatching ${VERSION} loaded`);
   }, []);
 
-  // Generate new problem
-  const generateProblem = () => {
-    const newNumber = useTwoSorobans
-      ? Math.floor(Math.random() * 13) + 3 // 3-15 for two-digit mode
-      : Math.floor(Math.random() * 9) + 1;  // 1-9 for single-digit mode
+  // Generate new problem with smart repetition avoidance
+  const generateProblem = (currentScore?: number) => {
+    // Use passed score if provided, otherwise use state
+    const effectiveScore = currentScore !== undefined ? currentScore : score;
+    const shouldUseTwoSorobans = effectiveScore >= 10;
+
+    let newNumber: number;
+    let min: number;
+    let max: number;
+
+    if (shouldUseTwoSorobans) {
+      // Scores 10-13: Intro range (10-15)
+      // Scores 14+: Full range (3-18)
+      if (effectiveScore >= 10 && effectiveScore <= 13) {
+        min = 10;
+        max = 15;
+      } else {
+        min = 3;
+        max = 18;
+      }
+    } else {
+      // Single soroban
+      // Scores 0-2: Early intro (1-4)
+      // Scores 3+: Full single range (1-9)
+      if (effectiveScore <= 2) {
+        min = 1;
+        max = 4;
+      } else {
+        min = 1;
+        max = 9;
+      }
+    }
+
+    const range = max - min + 1;
+
+    // Try to avoid repeating the previous number
+    // If range is small (≤3), allow repetition after one try
+    let attempts = range <= 3 ? 1 : 3;
+    do {
+      newNumber = Math.floor(Math.random() * range) + min;
+      attempts--;
+    } while (newNumber === previousNumber && attempts > 0);
+
+    setPreviousNumber(newNumber);
     setTargetNumber(newNumber);
     setResetKey((prev) => prev + 1);
     setShowingFeedback(false);
@@ -70,12 +112,7 @@ export function NumberMatching({ onBack }: NumberMatchingProps) {
   };
 
   const handleObjectMatched = (index: number) => {
-    console.log(`🎯 NumberMatching: Adding object ${index} to matched set`);
-    setMatchedObjects(prev => {
-      const newSet = new Set([...prev, index]);
-      console.log(`   Matched objects now:`, Array.from(newSet));
-      return newSet;
-    });
+    setMatchedObjects(prev => new Set([...prev, index]));
   };
 
   // Update refs when layout changes
@@ -100,7 +137,6 @@ export function NumberMatching({ onBack }: NumberMatchingProps) {
       const onesHeaven = onesValue >= 5;
       const onesEarth = onesValue >= 5 ? onesValue - 5 : onesValue;
 
-      console.log(`🎯 handleGo (two-soroban): tens=${tensValue} (H:${tensHeaven}, E:${tensEarth}), ones=${onesValue} (H:${onesHeaven}, E:${onesEarth}), total=${totalValue}`);
 
       setCurrentTensHeavenBead(tensHeaven);
       setCurrentTensEarthBeads(tensEarth);
@@ -111,7 +147,6 @@ export function NumberMatching({ onBack }: NumberMatchingProps) {
       const heavenBead = sorobanValue >= 5;
       const earthBeads = sorobanValue >= 5 ? sorobanValue - 5 : sorobanValue;
 
-      console.log(`🎯 handleGo (single-soroban): sorobanValue=${sorobanValue}, heavenBead=${heavenBead}, earthBeads=${earthBeads}`);
 
       setCurrentHeavenBead(heavenBead);
       setCurrentEarthBeads(earthBeads);
@@ -131,11 +166,15 @@ export function NumberMatching({ onBack }: NumberMatchingProps) {
 
   const handleFeedbackComplete = (isCorrect: boolean) => {
     if (isCorrect) {
-      setScore((prev) => prev + 1);
+      let newScore: number;
+      setScore((prev) => {
+        newScore = prev + 1;
+        return newScore;
+      });
       // Generate new problem after correct answer
       setTimeout(() => {
         setProblemNumber((prev) => prev + 1);
-        generateProblem();
+        generateProblem(newScore);
       }, 500);
     } else {
       // Red glow will be triggered by JiJi when it hits obstacle
@@ -182,7 +221,6 @@ export function NumberMatching({ onBack }: NumberMatchingProps) {
   // Regenerate problem when crossing 15-star threshold
   useEffect(() => {
     if (score === 15) {
-      console.log('🎉 Unlocked two-soroban mode!');
       setTimeout(() => {
         generateProblem();
       }, 1000);
@@ -348,7 +386,7 @@ export function NumberMatching({ onBack }: NumberMatchingProps) {
                   rodWidth: 60,
                   framepadding: 14,
                 }}
-                showValue={false}
+                showValue={true}
                 frameLabel="×10"
               />
             </div>
@@ -367,7 +405,7 @@ export function NumberMatching({ onBack }: NumberMatchingProps) {
                   rodWidth: 60,
                   framepadding: 14,
                 }}
-                showValue={false}
+                showValue={true}
                 frameLabel="dot"
               />
             </div>
@@ -386,7 +424,7 @@ export function NumberMatching({ onBack }: NumberMatchingProps) {
                 rodWidth: 60,
                 framepadding: 14,
               }}
-              showValue={false}
+              showValue={true}
             />
           </div>
         )}
@@ -448,6 +486,7 @@ export function NumberMatching({ onBack }: NumberMatchingProps) {
           ↻
         </motion.button>
       </div>
+
     </div>
   );
 }

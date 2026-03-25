@@ -272,7 +272,7 @@ export function NumberMatchingFeedback({
   const totalBeads = (heavenBeadActive ? 5 : 0) + earthBeadsActive;
 
   useEffect(() => {
-    console.log(`🎨 NumberMatchingFeedback ${VERSION} loaded`);
+    // Component loaded
   }, []);
 
   // Calculate positions when activated
@@ -282,7 +282,6 @@ export function NumberMatchingFeedback({
       return;
     }
 
-    console.log('🎯 Starting feedback animation');
 
     // Calculate object positions (grid layout)
     const getGridLayout = (count: number) => {
@@ -292,7 +291,7 @@ export function NumberMatchingFeedback({
     };
 
     const { cols, rows } = getGridLayout(targetCount);
-    const objectSize = 60;
+    const objectSize = 50;
     const gap = 16;
     const padding = 20; // Container padding
     const paddingBottom = 40; // Extra bottom padding from parent
@@ -366,15 +365,12 @@ export function NumberMatchingFeedback({
     hasCompletedRef.current = false;
 
     // Start animation
-    console.log('📍 Starting phase: FADING_SOROBAN');
     setPhase('FADING_SOROBAN');
 
     setTimeout(() => {
       if (heavenBeadActive) {
-        console.log('📍 Entering phase: SPLITTING_HEAVEN (heaven bead is active)');
         setPhase('SPLITTING_HEAVEN');
       } else {
-        console.log('📍 Entering phase: MATCHING (no heaven bead)');
         setPhase('MATCHING');
       }
     }, 800);
@@ -385,7 +381,6 @@ export function NumberMatchingFeedback({
   const handleSplitComplete = useCallback(() => {
     if (!heavenBeadPosition) return;
 
-    console.log('🌟 Heaven bead split complete! Creating 5 earth beads');
 
     const lineLength = 90;
     const angles = [-60, -33, 0, 33, 60];
@@ -395,7 +390,6 @@ export function NumberMatchingFeedback({
       const angleRad = (angles[i] * Math.PI) / 180;
       const endX = Math.sin(angleRad) * lineLength;
       const endY = -Math.cos(angleRad) * lineLength;
-      console.log(`   Bead ${i}: angle=${angles[i]}°, endX=${endX.toFixed(1)}, endY=${endY.toFixed(1)}`);
       spreadBeads.push({
         id: `heaven-${i}`,
         x: heavenBeadPosition.x + endX,
@@ -411,11 +405,9 @@ export function NumberMatchingFeedback({
   // Handle bead arrival at object
   const handleBeadArrive = useCallback(() => {
     const currentIndex = matchedCount;
-    console.log(`💥 Bead arrived! Matching object index ${currentIndex}`);
 
     // Notify parent that this object was matched (immediately) - only if there's an object to match
     if (currentIndex < targetCount) {
-      console.log(`   ✅ Notifying parent: object ${currentIndex} matched`);
       onObjectMatched(currentIndex);
 
       // Haptic feedback for match
@@ -428,7 +420,6 @@ export function NumberMatchingFeedback({
       }
     } else {
       // Extra bead - add to blocking beads array in JiJi's path
-      console.log(`   ⚠️ Extra bead ${currentIndex} (blocking JiJi)`);
       const extraBeadIndex = currentIndex - targetCount;
       const totalExtraBeads = totalBeads - targetCount;
       // JiJi flies through middle of objects area
@@ -452,7 +443,6 @@ export function NumberMatchingFeedback({
 
     setMatchedCount(prev => {
       const newCount = prev + 1;
-      console.log(`   📊 Matched count: ${prev} → ${newCount}`);
 
       // Check if this was the last bead
       const allBeadsUsed = newCount >= totalBeads;
