@@ -13,9 +13,12 @@ export function Soroban({
   rodCount,
   initialValue = 0,
   onValueChange,
+  onRodStatesChange,
   disabled = false,
   highlightRod,
   highlightRods,
+  flashBeadIndex,
+  hideHeavenBead = false,
   showValue = true,
   size = 'medium',
   sizeConfig: customSizeConfig,
@@ -47,6 +50,11 @@ export function Soroban({
   useEffect(() => {
     onValueChange?.(totalValue);
   }, [totalValue, onValueChange]);
+
+  // Notify parent of rod state changes
+  useEffect(() => {
+    onRodStatesChange?.(rods);
+  }, [rods, onRodStatesChange]);
 
   const handleRodStateChange = useCallback((rodIndex: number, newState: RodState) => {
     setRods((currentRods) => {
@@ -209,6 +217,8 @@ export function Soroban({
               disabled={disabled}
               highlighted={highlightRod === rod.rodIndex}
               glowHighlight={highlightRods?.includes(rod.rodIndex)}
+              flashBeadIndex={rod.rodIndex === 0 ? flashBeadIndex : undefined}
+              hideHeavenBead={hideHeavenBead}
               size={size}
               sizeConfig={customSizeConfig}
               maxValue={maxValue}

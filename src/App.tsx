@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { NumberMatching } from './components/matching/NumberMatching';
+import { SimpleAddition } from './components/addition/SimpleAddition';
 import { PracticeMode } from './components/practice/PracticeMode';
 import { AdditionChallenge } from './components/challenge/AdditionChallenge';
 import { ChallengeResults } from './components/challenge/ChallengeResults';
@@ -8,7 +9,7 @@ import './App.css';
 
 const APP_VERSION = 'v1.1.0';
 
-type Screen = 'menu' | 'matching' | 'practice' | 'addition' | 'results';
+type Screen = 'menu' | 'matching' | 'simple-addition' | 'practice' | 'addition' | 'results';
 
 function App() {
   const [screen, setScreen] = useState<Screen>('menu');
@@ -63,6 +64,25 @@ function App() {
         </motion.button>
 
         <motion.button
+          onClick={() => setScreen('simple-addition')}
+          style={{
+            padding: '20px 40px',
+            fontSize: 24,
+            fontWeight: 'bold',
+            color: 'white',
+            background: 'linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%)',
+            border: 'none',
+            borderRadius: 12,
+            cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(76, 175, 80, 0.3)',
+          }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          Level 2: Simple Addition
+        </motion.button>
+
+        <motion.button
           onClick={() => setScreen('addition')}
           style={{
             padding: '20px 40px',
@@ -105,6 +125,10 @@ function App() {
 
   if (screen === 'matching') {
     return <NumberMatching onBack={() => setScreen('menu')} />;
+  }
+
+  if (screen === 'simple-addition') {
+    return <SimpleAddition onBack={() => setScreen('menu')} />;
   }
 
   if (screen === 'practice') {

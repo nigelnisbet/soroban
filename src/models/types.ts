@@ -32,10 +32,16 @@ export interface SorobanProps {
   rodCount: number;
   initialValue?: number;
   onValueChange?: (value: number) => void;
+  /** Callback when rod states change (exposes bead configuration) */
+  onRodStatesChange?: (rodStates: RodState[]) => void;
   disabled?: boolean;
   highlightRod?: number;
   /** Highlight multiple rods with a glow effect */
   highlightRods?: number[];
+  /** Flash/highlight a specific bead (0-based index from top: heaven=0, earth beads=1-4) */
+  flashBeadIndex?: number;
+  /** Hide the heaven bead (for fan animation overlay) */
+  hideHeavenBead?: boolean;
   showValue?: boolean;
   size?: 'small' | 'medium' | 'large' | 'mobile';
   /** Custom size config (overrides size preset if provided) */

@@ -10,6 +10,8 @@ interface SorobanRodProps {
   disabled?: boolean;
   highlighted?: boolean;
   glowHighlight?: boolean;
+  flashBeadIndex?: number;
+  hideHeavenBead?: boolean;
   size: 'small' | 'medium' | 'large' | 'mobile';
   sizeConfig?: SizeConfig;
   maxValue?: number;
@@ -22,6 +24,8 @@ export function SorobanRod({
   disabled = false,
   highlighted = false,
   glowHighlight = false,
+  flashBeadIndex,
+  hideHeavenBead = false,
   size,
   sizeConfig: customSizeConfig,
   maxValue,
@@ -76,6 +80,30 @@ export function SorobanRod({
       const bottomY = earthSectionTop + earthSectionHeight - actualEarthBeadHeight - beadSpacing * 1.5;
       return bottomY - (3 - beadIndex) * (actualEarthBeadHeight + stackSpacing);
     }
+  };
+
+  // Determine which bead should flash based on flashBeadIndex
+  const shouldFlashBead = (beadType: 'heaven' | 'earth', earthBeadIndex?: number): boolean => {
+    if (flashBeadIndex === undefined || flashBeadIndex <= 0) return false;
+
+    // For now, simple earth bead only logic
+    // If heaven bead is active, indices 1-5 are for heaven (handle later)
+    // Earth beads start after heaven flashes
+    const heavenFlashCount = state.heavenBeadActive ? 5 : 0;
+
+    if (beadType === 'heaven') {
+      // Heaven bead flashes ONLY at the current index (not a range)
+      return state.heavenBeadActive && flashBeadIndex >= 1 && flashBeadIndex <= 5;
+    } else if (beadType === 'earth' && earthBeadIndex !== undefined) {
+      // Earth bead earthBeadIndex flashes when:
+      // flashBeadIndex = heavenFlashCount + earthBeadIndex + 1
+      // (e.g., if no heaven, earth bead 0 flashes at flashBeadIndex 1)
+      // ONLY flash when it's THIS bead's turn (exact match)
+      const expectedFlashIndex = heavenFlashCount + earthBeadIndex + 1;
+      return flashBeadIndex === expectedFlashIndex;
+    }
+
+    return false;
   };
 
   useEffect(() => {
@@ -382,15 +410,17 @@ export function SorobanRod({
       />
 
       {/* Heaven bead */}
-      <Bead
-        type="heaven"
-        isActive={state.heavenBeadActive}
-        disabled={disabled}
-        highlighted={previewTouches.heaven || (highlighted && glowHighlight)}
-        size={beadSize}
-        positionY={heavenBeadY}
-        locked={maxValue !== undefined && maxValue < 5} // Heaven bead represents 5
-      />
+      <div style={{ opacity: hideHeavenBead ? 0.3 : 1, transition: 'opacity 0.3s' }}>
+        <Bead
+          type="heaven"
+          isActive={state.heavenBeadActive}
+          disabled={disabled}
+          highlighted={previewTouches.heaven || (highlighted && glowHighlight) || shouldFlashBead('heaven')}
+          size={beadSize}
+          positionY={heavenBeadY}
+          locked={maxValue !== undefined && maxValue < 5} // Heaven bead represents 5
+        />
+      </div>
 
       {/* Divider bar */}
       <div
@@ -419,7 +449,7 @@ export function SorobanRod({
             type="earth"
             isActive={isActive}
             disabled={disabled}
-            highlighted={previewTouches.earthBeads?.has(beadIndex) || (highlighted && glowHighlight)}
+            highlighted={previewTouches.earthBeads?.has(beadIndex) || (highlighted && glowHighlight) || shouldFlashBead('earth', beadIndex)}
             size={beadSize}
             positionY={getEarthBeadY(beadIndex, isActive)}
             locked={isLocked}
