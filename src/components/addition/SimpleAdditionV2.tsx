@@ -4,6 +4,7 @@ import { Soroban } from '../soroban/Soroban';
 import { RodState } from '../../models/types';
 import { JiJiCharacter } from '../matching/JiJiCharacter';
 import { SimpleAdditionFeedback } from './SimpleAdditionFeedback';
+import { SimpleAdditionFeedbackTwo } from './SimpleAdditionFeedbackTwo';
 
 interface SimpleAdditionV2Props {
   onBack: () => void;
@@ -192,32 +193,63 @@ function FlyingBead({
 
 export function SimpleAdditionV2({ onBack }: SimpleAdditionV2Props) {
   const [sorobanValue, setSorobanValue] = useState(0);
+  const [onesValue, setOnesValue] = useState(0); // For two-soroban mode
+  const [tensValue, setTensValue] = useState(0); // For two-soroban mode
   const [rodStates, setRodStates] = useState<RodState[]>([]);
+  const [tensRodStates, setTensRodStates] = useState<RodState[]>([]);
+  const [onesRodStates, setOnesRodStates] = useState<RodState[]>([]);
   const [resetKey, setResetKey] = useState(0);
   const [score, setScore] = useState(0);
   const [countingBoxValue, setCountingBoxValue] = useState<number | null>(null);
   const sorobanRef = useRef<HTMLDivElement>(null);
+  const tensSorobanRef = useRef<HTMLDivElement>(null);
+  const onesSorobanRef = useRef<HTMLDivElement>(null);
   const [showJiJi, setShowJiJi] = useState(false);
   const [showBlockingGlow, setShowBlockingGlow] = useState(false);
   const [showFullEquation, setShowFullEquation] = useState(false);
   const [showStep1Feedback, setShowStep1Feedback] = useState(false);
   const [showStep2Feedback, setShowStep2Feedback] = useState(false);
+  const [animatingTensSoroban, setAnimatingTensSoroban] = useState(false);
+  const [animatingOnesSoroban, setAnimatingOnesSoroban] = useState(false);
+  const tensBeadsFlownRef = useRef(0); // Track how many beads actually flew from tens
   const [sorobanRect, setSorobanRect] = useState<DOMRect | null>(null);
   const [countingBoxRect, setCountingBoxRect] = useState<DOMRect | null>(null);
   const [bottomBoxRect, setBottomBoxRect] = useState<DOMRect | null>(null);
   const [verificationResult, setVerificationResult] = useState<'correct' | 'incorrect' | null>(null);
+  const [showTransitionNumber, setShowTransitionNumber] = useState(false); // For sliding number between steps
+  const addend1TransitionRef = useRef<HTMLDivElement>(null); // Target position in step 2
+  const targetNumberRef = useRef<HTMLDivElement>(null); // Source position in step 1
 
-  // Generate random addition problem (sum between 2 and 9)
+  // Generate random addition problem based on score
+  // CONSTRAINT: Both addends must be single digits (1-9)
   const generateProblem = () => {
-    const sum = Math.floor(Math.random() * 8) + 2; // 2-9
-    const firstAddend = Math.floor(Math.random() * (sum - 1)) + 1; // 1 to (sum-1)
+    let sum: number;
+
+    if (score < 10) {
+      // Problems 1-10: sums 2-9 (single digit)
+      sum = Math.floor(Math.random() * 8) + 2; // 2-9
+    } else if (score < 20) {
+      // Problems 11-20: sums 10-18 (double digit)
+      sum = Math.floor(Math.random() * 9) + 10; // 10-18
+    } else {
+      // Problems 21+: sums 2-18 (mixed)
+      sum = Math.floor(Math.random() * 17) + 2; // 2-18
+    }
+
+    // Ensure both addends are 1-9
+    const minFirstAddend = Math.max(1, sum - 9); // Can't be less than 1, and second addend can't exceed 9
+    const maxFirstAddend = Math.min(9, sum - 1); // Can't exceed 9, and second addend must be at least 1
+    const firstAddend = Math.floor(Math.random() * (maxFirstAddend - minFirstAddend + 1)) + minFirstAddend;
     const secondAddend = sum - firstAddend;
+
     return { firstAddend, secondAddend };
   };
 
   const [currentProblem, setCurrentProblem] = useState(() => generateProblem());
   const targetAddend = currentProblem.firstAddend;
   const secondAddend = currentProblem.secondAddend;
+  const sumIsDoubleDigit = (targetAddend + secondAddend) >= 10;
+  const forceTwoSorobanMode = score >= 20; // After problem 20, always use two-soroban in step 2
 
   const [flyingParticles, setFlyingParticles] = useState<Array<{ id: number; startX: number; startY: number; targetX: number; targetY: number }>>([]);
   const problemAreaRef = useRef<HTMLDivElement>(null);
@@ -233,6 +265,11 @@ export function SimpleAdditionV2({ onBack }: SimpleAdditionV2Props) {
   const [fanBeadPositions, setFanBeadPositions] = useState<Array<{ x: number; y: number }>>([]);
   const [bottomBoxValue, setBottomBoxValue] = useState<number | null>(null);
   const [topBoxValue, setTopBoxValue] = useState<number | null>(null);
+
+  // Debug logging for bottomBoxValue changes
+  useEffect(() => {
+    console.log('bottomBoxValue changed to:', bottomBoxValue);
+  }, [bottomBoxValue]);
   const [showAddend1Objects, setShowAddend1Objects] = useState(false);
   const [showAddend2Objects, setShowAddend2Objects] = useState(false);
   const [hiddenAddend1Indices, setHiddenAddend1Indices] = useState<Set<number>>(new Set());
@@ -255,6 +292,14 @@ export function SimpleAdditionV2({ onBack }: SimpleAdditionV2Props) {
     setRodStates(states);
   };
 
+  const handleTensRodStatesChange = (states: RodState[]) => {
+    setTensRodStates(states);
+  };
+
+  const handleOnesRodStatesChange = (states: RodState[]) => {
+    setOnesRodStates(states);
+  };
+
   const handleStep1FeedbackComplete = () => {
     // Don't set showStep1Feedback to false yet - keep soroban faded
     // We'll clear it when we reset or move to step 2
@@ -273,8 +318,12 @@ export function SimpleAdditionV2({ onBack }: SimpleAdditionV2Props) {
         // If correct, show full equation (soroban will fade back in)
         setTimeout(() => {
           setShowFullEquation(true);
-          setShowStep1Feedback(false); // Now we can clear the feedback state
-          setVerificationResult(null); // Clear verification result for step 2
+          setShowStep1Feedback(false);
+          setVerificationResult(null);
+          // Set ones value to match step 1 value for two-soroban mode
+          if (sumIsDoubleDigit || forceTwoSorobanMode) {
+            setOnesValue(targetAddend);
+          }
         }, 1400);
       }
     }, 500);
@@ -296,6 +345,41 @@ export function SimpleAdditionV2({ onBack }: SimpleAdditionV2Props) {
 
   const handleStep2BeadArrived = (count: number) => {
     setBottomBoxValue(count);
+  };
+
+  const handleTensSorobanComplete = () => {
+    // Tens animation done, animate ones soroban
+    setAnimatingTensSoroban(false);
+    console.log('TENS complete, tensBeadsFlownRef:', tensBeadsFlownRef.current);
+
+    setTimeout(() => {
+      if (onesSorobanRef.current) {
+        setSorobanRect(onesSorobanRef.current.getBoundingClientRect());
+      }
+      setAnimatingOnesSoroban(true);
+    }, 300);
+  };
+
+  const handleTensBeadArrived = (count: number) => {
+    // Each tens bead counts as 1 in the counting box (1, 2, 3... 10)
+    console.log('TENS bead arrived, count:', count, '→ setting bottomBoxValue to:', count);
+    setBottomBoxValue(count);
+    // Save the count as we go, so we have the final count when complete
+    tensBeadsFlownRef.current = count;
+  };
+
+  const handleOnesSorobanComplete = () => {
+    // Both sorobans done, now start addend animation
+    setAnimatingOnesSoroban(false);
+    setShowStep2Feedback(true); // This will trigger handleStep2FeedbackComplete
+  };
+
+  const handleOnesBeadArrived = (count: number) => {
+    // Count is the incremental bead count from ones soroban (1, 2, 3...)
+    // Add to the number of beads that flew from tens place (could be 0 or 10)
+    const newValue = tensBeadsFlownRef.current + count;
+    console.log('ONES bead arrived, count:', count, 'tensBeadsFlown:', tensBeadsFlownRef.current, '→ setting bottomBoxValue to:', newValue);
+    setBottomBoxValue(newValue);
   };
 
   const animateAddends = () => {
@@ -600,15 +684,27 @@ export function SimpleAdditionV2({ onBack }: SimpleAdditionV2Props) {
 
     // Step 2: Use feedback component for bottom box
     if (showFullEquation) {
-      // Get fresh rects
-      if (sorobanRef.current) {
-        setSorobanRect(sorobanRef.current.getBoundingClientRect());
-      }
-      if (bottomBoxRef.current) {
-        setBottomBoxRect(bottomBoxRef.current.getBoundingClientRect());
-      }
       setBottomBoxValue(0); // Make bottom box visible
-      setShowStep2Feedback(true);
+
+      if (sumIsDoubleDigit || forceTwoSorobanMode) {
+        // Two-soroban mode: start animation (handles both tens and ones internally)
+        if (sorobanRef.current) {
+          setSorobanRect(sorobanRef.current.getBoundingClientRect());
+        }
+        if (bottomBoxRef.current) {
+          setBottomBoxRect(bottomBoxRef.current.getBoundingClientRect());
+        }
+        setAnimatingTensSoroban(true); // Trigger the two-soroban feedback
+      } else {
+        // Single-soroban mode
+        if (sorobanRef.current) {
+          setSorobanRect(sorobanRef.current.getBoundingClientRect());
+        }
+        if (bottomBoxRef.current) {
+          setBottomBoxRect(bottomBoxRef.current.getBoundingClientRect());
+        }
+        setShowStep2Feedback(true);
+      }
       return;
     }
 
@@ -634,9 +730,14 @@ export function SimpleAdditionV2({ onBack }: SimpleAdditionV2Props) {
     setShouldTriggerComparison(false);
     setShowStep1Feedback(false);
     setShowStep2Feedback(false);
+    setAnimatingTensSoroban(false);
+    setAnimatingOnesSoroban(false);
+    tensBeadsFlownRef.current = 0;
     setSorobanRect(null);
     setCountingBoxRect(null);
     setBottomBoxRect(null);
+    setOnesValue(0);
+    setTensValue(0);
     // Don't reset jijiAnimationCompleteRef here - it stays true until next JiJi shows
 
     // Only generate new problem if explicitly requested (on success)
@@ -648,6 +749,14 @@ export function SimpleAdditionV2({ onBack }: SimpleAdditionV2Props) {
   const handleJiJiBlocked = () => {
     // Show red glow on blocking number
     setShowBlockingGlow(true);
+
+    // Hide JiJi and reset after a delay
+    setTimeout(() => {
+      setShowJiJi(false);
+      setShowBlockingGlow(false);
+      jijiAnimationCompleteRef.current = false;
+      handleReset(false);
+    }, 1500);
   };
 
   const handleJiJiAnimationComplete = () => {
@@ -680,7 +789,11 @@ export function SimpleAdditionV2({ onBack }: SimpleAdditionV2Props) {
   // For step 2, button is enabled as soon as soroban changes from initial state
   // Once addend animation starts, disable button permanently for this round
   const goButtonEnabled = !showStep1Feedback && !showStep2Feedback && !verificationResult && !addendAnimationStarted && (
-    !showFullEquation ? sorobanValue > 0 : (sorobanValue !== targetAddend && sorobanValue > 0)
+    !showFullEquation
+      ? sorobanValue > 0
+      : (showFullEquation && (sumIsDoubleDigit || forceTwoSorobanMode))
+        ? (onesValue > 0 || tensValue > 0) // Two-soroban mode: any touch enables button
+        : (sorobanValue !== targetAddend && sorobanValue > 0) // Single-soroban mode: change from initial
   );
 
   return (
@@ -729,32 +842,19 @@ export function SimpleAdditionV2({ onBack }: SimpleAdditionV2Props) {
           ←
         </motion.button>
 
+        {/* Center spacer */}
+        <div style={{ flex: 1 }} />
+
         {/* Score/Stars display */}
         <div
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            background: '#FFF8E7',
-            borderRadius: 24,
-            padding: '8px 16px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            fontSize: 28,
+            fontWeight: 'bold',
+            color: '#DAA520',
           }}
         >
-          <span style={{ fontSize: 24 }}>⭐</span>
-          <span
-            style={{
-              fontSize: 20,
-              fontWeight: 'bold',
-              color: '#2D1810',
-            }}
-          >
-            {score}
-          </span>
+          ⭐ {score}
         </div>
-
-        {/* Right spacer for symmetry */}
-        <div style={{ width: 48 }} />
       </div>
 
       {/* Problem Area - Step 1: Show first addend with counting box */}
@@ -797,27 +897,62 @@ export function SimpleAdditionV2({ onBack }: SimpleAdditionV2Props) {
           >
             {/* First addend - stays in place, equation builds around it */}
             <motion.div ref={addend1Ref} style={{ position: 'relative' }}>
-              {targetAddend}
-              {/* Green objects above first addend */}
+              <span ref={addend1TransitionRef}>{targetAddend}</span>
+              {/* Green objects above first addend - two rows */}
               {showAddend1Objects && (
-                <div style={{ position: 'absolute', top: -50, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 4 }}>
-                  {Array.from({ length: targetAddend }).map((_, i) => (
-                    !hiddenAddend1Indices.has(i) && (
-                      <motion.div
-                        key={i}
-                        style={{
-                          width: 20,
-                          height: 20,
-                          borderRadius: '50%',
-                          background: '#4CAF50',
-                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                        }}
-                        initial={{ scale: 0, y: 20 }}
-                        animate={{ scale: 1, y: 0 }}
-                        transition={{ delay: i * 0.1, type: 'spring', stiffness: 300, damping: 15 }}
-                      />
-                    )
-                  ))}
+                <div style={{
+                  position: 'absolute',
+                  top: -35,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 4
+                }}>
+                  {/* Top row - ceil(count/2) items */}
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {Array.from({ length: Math.ceil(targetAddend / 2) }).map((_, i) => (
+                      !hiddenAddend1Indices.has(i) && (
+                        <motion.div
+                          key={i}
+                          style={{
+                            width: 20,
+                            height: 20,
+                            borderRadius: '50%',
+                            background: '#4CAF50',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                          }}
+                          initial={{ scale: 0, y: 20 }}
+                          animate={{ scale: 1, y: 0 }}
+                          transition={{ delay: i * 0.1, type: 'spring', stiffness: 300, damping: 15 }}
+                        />
+                      )
+                    ))}
+                  </div>
+                  {/* Bottom row - floor(count/2) items */}
+                  {targetAddend > 1 && (
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {Array.from({ length: Math.floor(targetAddend / 2) }).map((_, i) => {
+                        const actualIndex = Math.ceil(targetAddend / 2) + i;
+                        return !hiddenAddend1Indices.has(actualIndex) && (
+                          <motion.div
+                            key={actualIndex}
+                            style={{
+                              width: 20,
+                              height: 20,
+                              borderRadius: '50%',
+                              background: '#4CAF50',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                            }}
+                            initial={{ scale: 0, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
+                            transition={{ delay: actualIndex * 0.1, type: 'spring', stiffness: 300, damping: 15 }}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </motion.div>
@@ -842,24 +977,50 @@ export function SimpleAdditionV2({ onBack }: SimpleAdditionV2Props) {
                   {secondAddend}
                   {/* Green objects above second addend */}
                   {showAddend2Objects && (
-                    <div style={{ position: 'absolute', top: -50, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 4 }}>
-                      {Array.from({ length: secondAddend }).map((_, i) => (
-                        !hiddenAddend2Indices.has(i) && (
-                          <motion.div
-                            key={i}
-                            style={{
-                              width: 20,
-                              height: 20,
-                              borderRadius: '50%',
-                              background: '#4CAF50',
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                            }}
-                            initial={{ scale: 0, y: 20 }}
-                            animate={{ scale: 1, y: 0 }}
-                            transition={{ delay: i * 0.1, type: 'spring', stiffness: 300, damping: 15 }}
-                          />
-                        )
-                      ))}
+                    <div style={{ position: 'absolute', top: -35, left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                      {/* Top row - ceil(count/2) items */}
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        {Array.from({ length: Math.ceil(secondAddend / 2) }).map((_, i) => (
+                          !hiddenAddend2Indices.has(i) && (
+                            <motion.div
+                              key={i}
+                              style={{
+                                width: 20,
+                                height: 20,
+                                borderRadius: '50%',
+                                background: '#4CAF50',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                              }}
+                              initial={{ scale: 0, y: 20 }}
+                              animate={{ scale: 1, y: 0 }}
+                              transition={{ delay: i * 0.1, type: 'spring', stiffness: 300, damping: 15 }}
+                            />
+                          )
+                        ))}
+                      </div>
+                      {/* Bottom row - floor(count/2) items */}
+                      {secondAddend > 1 && (
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          {Array.from({ length: Math.floor(secondAddend / 2) }).map((_, i) => {
+                            const actualIndex = Math.ceil(secondAddend / 2) + i;
+                            return !hiddenAddend2Indices.has(actualIndex) && (
+                              <motion.div
+                                key={actualIndex}
+                                style={{
+                                  width: 20,
+                                  height: 20,
+                                  borderRadius: '50%',
+                                  background: '#4CAF50',
+                                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                                }}
+                                initial={{ scale: 0, y: 20 }}
+                                animate={{ scale: 1, y: 0 }}
+                                transition={{ delay: actualIndex * 0.1, type: 'spring', stiffness: 300, damping: 15 }}
+                              />
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
                 </motion.div>
@@ -873,8 +1034,9 @@ export function SimpleAdditionV2({ onBack }: SimpleAdditionV2Props) {
                 {/* Top counting box - inline with equation */}
                 <motion.div
                   ref={topBoxRef}
+                  key={topBoxValue} // Key change triggers pulse animation on each increment
                   style={{
-                    width: 64,
+                    width: (sumIsDoubleDigit || forceTwoSorobanMode) ? 96 : 64,
                     height: 76,
                     border: '3px solid #5D4632',
                     borderRadius: 8,
@@ -886,7 +1048,7 @@ export function SimpleAdditionV2({ onBack }: SimpleAdditionV2Props) {
                     fontWeight: 'bold',
                     color: topBoxValue !== null && topBoxValue > 0 ? '#2D1810' : '#BDBDBD',
                   }}
-                  initial={{ opacity: 0, scale: 0.5 }}
+                  initial={{ opacity: 1, scale: 1 }} // Start visible with question mark
                   animate={
                     isComparingFinal
                       ? { opacity: 0, scale: 0.8 }
@@ -897,7 +1059,7 @@ export function SimpleAdditionV2({ onBack }: SimpleAdditionV2Props) {
                   transition={
                     topBoxValue !== null && topBoxValue > 0
                       ? { duration: 0.3 }
-                      : { delay: 0.7 }
+                      : { duration: 0.3 }
                   }
                 >
                   {topBoxValue !== null && topBoxValue > 0 ? topBoxValue : '?'}
@@ -918,8 +1080,9 @@ export function SimpleAdditionV2({ onBack }: SimpleAdditionV2Props) {
               {/* Bottom counting box - aligned under top box */}
               <motion.div
                 ref={bottomBoxRef}
+                key={bottomBoxValue} // Key change triggers pulse animation on each increment
                 style={{
-                  width: 64,
+                  width: (sumIsDoubleDigit || forceTwoSorobanMode) ? 96 : 64,
                   height: 76,
                   border: '3px solid #5D4632',
                   borderRadius: 8,
@@ -954,10 +1117,42 @@ export function SimpleAdditionV2({ onBack }: SimpleAdditionV2Props) {
             </div>
           )}
 
+          {/* Transition number - slides from step 1 to step 2 */}
+          {showTransitionNumber && countingBoxRef.current && addend1TransitionRef.current && (() => {
+            const startRect = countingBoxRef.current.getBoundingClientRect();
+            const endRect = addend1TransitionRef.current.getBoundingClientRect();
+
+            const startX = startRect.left + startRect.width / 2;
+            const startY = startRect.top + startRect.height / 2;
+            const endX = endRect.left + endRect.width / 2;
+            const endY = endRect.top + endRect.height / 2;
+
+            return (
+              <motion.div
+                style={{
+                  position: 'fixed',
+                  left: startX,
+                  top: startY,
+                  fontSize: 64,
+                  fontWeight: 'bold',
+                  color: '#2D1810',
+                  zIndex: 2000,
+                  transform: 'translate(-50%, -50%)',
+                }}
+                initial={{ x: 0, y: 0 }}
+                animate={{ x: endX - startX, y: endY - startY }}
+                transition={{ duration: 0.5, ease: 'easeInOut' }}
+              >
+                {targetAddend}
+              </motion.div>
+            );
+          })()}
+
           {/* Counting box - only for step 1 */}
           {!showFullEquation && (
             <motion.div
               ref={countingBoxRef}
+              key={countingBoxValue} // Key change triggers pulse animation on each increment
               style={{
                 width: 64,
                 height: 76,
@@ -1033,7 +1228,7 @@ export function SimpleAdditionV2({ onBack }: SimpleAdditionV2Props) {
                     ? {
                         color: { duration: 0.6, delay: 0.5, times: [0, 0.45, 0.5, 0.75, 1] },
                         scale: { duration: 0.6, delay: 0.5, times: [0, 0.45, 0.5, 0.75, 1] },
-                        opacity: { duration: 0.3, delay: 1.1 }
+                        opacity: { duration: 0.8, delay: 1.1 } // Slower fade: 0.8s instead of 0.3s
                       }
                     : {}
                 }
@@ -1071,7 +1266,7 @@ export function SimpleAdditionV2({ onBack }: SimpleAdditionV2Props) {
                     y: { duration: 0.5, ease: finalVerificationResult === 'incorrect' ? [0.25, 0.1, 0.25, 1] : 'easeInOut' },
                     color: finalVerificationResult === 'correct' ? { duration: 0.6, delay: 0.5, times: [0, 0.45, 0.5, 0.75, 1] } : {},
                     scale: finalVerificationResult === 'correct' ? { duration: 0.6, delay: 0.5, times: [0, 0.45, 0.5, 0.75, 1] } : {},
-                    opacity: finalVerificationResult === 'correct' ? { duration: 0.3, delay: 1.1 } : {},
+                    opacity: finalVerificationResult === 'correct' ? { duration: 0.8, delay: 1.1 } : {}, // Slower fade: 0.8s instead of 0.3s
                   }}
                 >
                 {bottomBoxValue}
@@ -1157,33 +1352,80 @@ export function SimpleAdditionV2({ onBack }: SimpleAdditionV2Props) {
         ref={sorobanRef}
         style={{
           display: 'flex',
-          flexDirection: 'column',
+          flexDirection: (showFullEquation && (sumIsDoubleDigit || forceTwoSorobanMode)) ? 'row' : 'column',
           alignItems: 'center',
-          gap: 16,
+          justifyContent: 'center',
+          gap: (showFullEquation && (sumIsDoubleDigit || forceTwoSorobanMode)) ? 0 : 16,
           padding: '0 20px',
           flexShrink: 0,
           userSelect: 'none',
           WebkitUserSelect: 'none',
           WebkitTouchCallout: 'none',
           position: 'relative',
-          opacity: (showStep1Feedback || showStep2Feedback || (verificationResult && !showFullEquation)) ? 0.3 : 1,
+          opacity: (showStep1Feedback || showStep2Feedback || animatingTensSoroban || animatingOnesSoroban || (verificationResult && !showFullEquation)) ? 0.3 : 1,
           transition: 'opacity 0.8s ease',
         }}
       >
-        <Soroban
-          key={resetKey}
-          rodCount={1}
-          initialValue={0}
-          onValueChange={handleSorobanChange}
-          onRodStatesChange={handleRodStatesChange}
-          sizeConfig={{
-            beadSize: 42,
-            beadSpacing: 7,
-            rodWidth: 60,
-            framepadding: 14,
-          }}
-          showValue={false}
-        />
+        {(showFullEquation && (sumIsDoubleDigit || forceTwoSorobanMode)) ? (
+          <>
+            {/* Tens place soroban (left) with ×10 label - limited to 1 earth bead */}
+            <div ref={tensSorobanRef}>
+              <Soroban
+                key={`tens-${resetKey}`}
+                rodCount={1}
+                initialValue={0}
+                onValueChange={setTensValue}
+                onRodStatesChange={handleTensRodStatesChange}
+                disabled={showStep2Feedback || animatingTensSoroban}
+                maxValue={1}
+                sizeConfig={{
+                  beadSize: 42,
+                  beadSpacing: 7,
+                  rodWidth: 60,
+                  framepadding: 14,
+                }}
+                showValue={false}
+                frameLabel="×10"
+              />
+            </div>
+
+            {/* Ones place soroban (right) with dot */}
+            <div ref={onesSorobanRef}>
+              <Soroban
+                key={`ones-${resetKey}`}
+                rodCount={1}
+                initialValue={targetAddend}
+                onValueChange={setOnesValue}
+                onRodStatesChange={handleOnesRodStatesChange}
+                disabled={showStep2Feedback || animatingOnesSoroban}
+                sizeConfig={{
+                  beadSize: 42,
+                  beadSpacing: 7,
+                  rodWidth: 60,
+                  framepadding: 14,
+                }}
+                showValue={false}
+                frameLabel="dot"
+              />
+            </div>
+          </>
+        ) : (
+          <Soroban
+            key={resetKey}
+            rodCount={1}
+            initialValue={0}
+            onValueChange={handleSorobanChange}
+            onRodStatesChange={handleRodStatesChange}
+            sizeConfig={{
+              beadSize: 42,
+              beadSpacing: 7,
+              rodWidth: 60,
+              framepadding: 14,
+            }}
+            showValue={false}
+            frameLabel="dot"
+          />
+        )}
       </div>
 
 
@@ -1278,7 +1520,7 @@ export function SimpleAdditionV2({ onBack }: SimpleAdditionV2Props) {
 
       {/* Step 2 Feedback - Flying beads to bottom box */}
       <SimpleAdditionFeedback
-        isActive={showStep2Feedback}
+        isActive={showStep2Feedback && !(sumIsDoubleDigit || forceTwoSorobanMode)}
         heavenBeadActive={rodStates[0]?.heavenBeadActive || false}
         earthBeadsActive={rodStates[0]?.earthBeadsActive || 0}
         sorobanRect={sorobanRect}
@@ -1286,6 +1528,31 @@ export function SimpleAdditionV2({ onBack }: SimpleAdditionV2Props) {
         onComplete={handleStep2FeedbackComplete}
         onBeadArrived={handleStep2BeadArrived}
       />
+
+      {/* Step 2 Two-Soroban Feedback */}
+      {(sumIsDoubleDigit || forceTwoSorobanMode) && (
+        <SimpleAdditionFeedbackTwo
+          key={`two-soroban-${resetKey}`}
+          isActive={animatingTensSoroban || animatingOnesSoroban}
+          tensHeavenBeadActive={tensRodStates[0]?.heavenBeadActive || false}
+          tensEarthBeadsActive={tensRodStates[0]?.earthBeadsActive || 0}
+          onesHeavenBeadActive={onesRodStates[0]?.heavenBeadActive || false}
+          onesEarthBeadsActive={onesRodStates[0]?.earthBeadsActive || 0}
+          sorobanRect={sorobanRect}
+          countingBoxRect={bottomBoxRect}
+          onComplete={() => {
+            setAnimatingTensSoroban(false);
+            setAnimatingOnesSoroban(false);
+            // Start addend animation
+            handleStep2FeedbackComplete();
+          }}
+          onBeadArrived={(count) => {
+            console.log('Two-soroban bead arrived, count:', count);
+            setBottomBoxValue(count);
+            tensBeadsFlownRef.current = count;
+          }}
+        />
+      )}
 
       {/* JiJi character */}
       <JiJiCharacter
