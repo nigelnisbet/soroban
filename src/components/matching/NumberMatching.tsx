@@ -294,16 +294,15 @@ export function NumberMatching({ onBack }: NumberMatchingProps) {
       } else if (verificationResult === 'correct') {
         // Symbolic mode correct: move to next problem
         setTimeout(() => {
-          let newScore: number;
           setScore((prev) => {
-            newScore = prev + 1;
+            const newScore = prev + 1;
+            setProblemNumber((p) => p + 1);
+            setVerificationResult(null);
+            setShowingFeedback(false);
+            setCountingBoxValue(0);
+            generateProblem(newScore); // This will reset showJiJi
             return newScore;
           });
-          setProblemNumber((prev) => prev + 1);
-          setVerificationResult(null);
-          setShowingFeedback(false);
-          setCountingBoxValue(0);
-          generateProblem(newScore); // This will reset showJiJi
           // DON'T reset ref here - it will be reset when next JiJi appears
         }, 1000);
       }
