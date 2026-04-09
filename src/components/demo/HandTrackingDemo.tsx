@@ -297,6 +297,7 @@ function loadScript(src: string): Promise<void> {
 function countFingers(landmarks: any[], handedness: string): number {
   const fingerTips = [8, 12, 16, 20]; // Index, Middle, Ring, Pinky
   const fingerPIPs = [6, 10, 14, 18]; // PIP joints (second knuckle)
+  const fingerMCPs = [5, 9, 13, 17]; // MCP joints (knuckles at base of fingers)
   const thumbTip = 4;
   const thumbIP = 3;
   const thumbMCP = 2; // Base of thumb
@@ -312,17 +313,25 @@ function countFingers(landmarks: any[], handedness: string): number {
 
   // Check thumb (different logic for left/right hand)
   // Thumb is extended if tip is far from palm in the horizontal direction
+  // TUNED: Lower threshold (0.025 instead of 0.05) makes it easier to detect thumb
   const thumbDistance = handedness === 'Right'
     ? landmarks[thumbTip].x - landmarks[thumbMCP].x
     : landmarks[thumbMCP].x - landmarks[thumbTip].x;
 
-  fingerStates.thumb = thumbDistance > 0.05; // Threshold for thumb extension
+  fingerStates.thumb = thumbDistance > 0.025; // More sensitive thumb detection
 
   // Check other fingers (tip above PIP joint = extended)
+  // For index, middle, ring: standard detection
   fingerStates.index = landmarks[fingerTips[0]].y < landmarks[fingerPIPs[0]].y;
   fingerStates.middle = landmarks[fingerTips[1]].y < landmarks[fingerPIPs[1]].y;
   fingerStates.ring = landmarks[fingerTips[2]].y < landmarks[fingerPIPs[2]].y;
-  fingerStates.pinky = landmarks[fingerTips[3]].y < landmarks[fingerPIPs[3]].y;
+
+  // TUNED: Pinky requires tip to be significantly higher (0.02 units) than PIP joint
+  // This prevents partially-raised pinky from being counted as extended
+  const pinkyTip = landmarks[fingerTips[3]];
+  const pinkyPIP = landmarks[fingerPIPs[3]];
+  const pinkyExtensionDistance = pinkyPIP.y - pinkyTip.y;
+  fingerStates.pinky = pinkyExtensionDistance > 0.02; // Stricter pinky detection
 
   // Calculate count based on soroban rules:
   // Thumb alone = 5
